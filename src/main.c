@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include "kvec.h"
+#include <math.h>
 
 #define TITLE "replacement"
 
@@ -13,6 +14,13 @@
  * @Logging
  * ========
  */
+
+typedef enum Result {
+	Ok,
+	Err,
+} Result;
+
+#define is_err(e) e == Err
 
 static char tbuf[16];
 
@@ -83,19 +91,102 @@ GLenum glCheckError_(int line, const char *file)
 #define checkGlError() glCheckError_(__LINE__, __FILE__)
 
 /*
+ * ============
+ * @KEYBINDINGS
+ * ============
+ *
+ * - We need to be able to fetch keybind by action, and action associated with keybind. 
+ * - We also need to be able to support keys that just fire as long as they are held, as well as those with specific callbacks.
+ * - We need to iterate over both the above groups in one loop.
+ */
+
+enum {
+	KMOVE_FORW,
+	KMOVE_LEFT,
+	KMOVE_RIGHT,
+	KMOVE_BACK,
+	KJUMP,
+
+	KPAUSE,
+
+	K_SHOOT,
+	K_AIM,
+	K_RELOAD,
+
+	K_BINDS, // number of binds
+};
+
+// default keybindings
+//
+
+typedef struct {
+	int callback;
+	int key;
+	int pressed;
+} Keybinding;
+
+#define KEYBIND(_key, _callback) {.key = _key, .callback = _callback, .pressed = 0}
+
+enum {
+	NO_CALLBACK,
+	CALLBACK_TOGGLE,
+};
+
+Keybinding Keybinds[K_BINDS] = {
+KEYBIND(GLFW_KEY_W,								NO_CALLBACK), // forward
+KEYBIND(GLFW_KEY_A, 							NO_CALLBACK), // left
+KEYBIND(GLFW_KEY_D, 							NO_CALLBACK), // right
+KEYBIND(GLFW_KEY_S, 							NO_CALLBACK), // back
+KEYBIND(GLFW_KEY_SPACE,						NO_CALLBACK), // jump
+
+KEYBIND(GLFW_KEY_PAUSE,						CALLBACK_TOGGLE), // pause
+
+KEYBIND(GLFW_MOUSE_BUTTON_LEFT,		CALLBACK_TOGGLE), // shoot
+KEYBIND(GLFW_MOUSE_BUTTON_RIGHT,	CALLBACK_TOGGLE), // aim
+KEYBIND(GLFW_KEY_R,								CALLBACK_TOGGLE), // reload
+};
+
+// Check for key presses and respect callbacks.
+// TODO: we check every single entry on a keypress. Create a mapping between key and action to save checks.
+void keybindingsPoll(void *window, int key, int action, int mods) {
+	int k, c;
+	for (int i = 0; i < K_BINDS; i++) {
+		k = Keybinds[i].key;
+		c = Keybinds[i].callback;
+
+		switch (c) {
+			case NO_CALLBACK:
+				if (key == k) {
+					Keybinds[key].pressed = 1;
+				} else {
+					Keybinds[key].pressed = 0;
+				}
+				break;
+
+			case CALLBACK_TOGGLE:
+				if (key == k && action == GLFW_PRESS) {
+					Keybinds[key].pressed = 1;
+				} else {
+					Keybinds[key].pressed = 0;
+				}
+				break;
+		}
+	}
+}
+
+// Attach keybindings to window.
+void keybindingsInit(void *window) {
+	glfwSetKeyCallback(window, (GLFWkeyfun)keybindingsPoll);
+	glfwSetMouseButtonCallback(window, (GLFWmousebuttonfun)(keybindingsPoll));
+}
+
+/*
  * ===========================
  * @WINDOWING, GLFW, GLAD INIT
  * ===========================
  */
 
 static int window_created = 0;
-
-typedef enum Result {
-	Ok,
-	Err,
-} Result;
-
-#define is_err(e) e == Err
 
 typedef struct {
 	GLFWwindow *window;
@@ -153,6 +244,8 @@ Result windowInit() {
 	 	 log_error("Failed to initialize GLAD!");
 		 return Err;
 	 }    
+
+	 keybindingsInit(WINDOW.window);
 
 	 glViewport(0, 0, WINDOW.resx, WINDOW.resy);
 
@@ -405,7 +498,6 @@ RenderInfo renderInitTriangle() {
 }
 
 void renderTriangle(TriangleThing *self, Body *body, RenderInfo ri, RenderMatrices *rm, RenderMods *mods) {
-	log_debug("VAO: %d | SHADER: %d", ri.vao, ri.shader);
 	glBindVertexArray(ri.vao);
 	glUseProgram(ri.shader);
 
@@ -418,6 +510,119 @@ struct CubeThing {
 };
 
 /*
+ * =======
+ * @CAMERA
+ * =======
+ */
+
+typedef struct PerpsectiveCamera {
+	float pitch, yaw;
+	bool firstInt;
+	double lastx, lasty;
+	vec3 pos, direction, up, front, right;
+	mat4 proj, view;
+	float fov;
+	float sensitivity;
+} PerspectiveCamera;
+
+static PerspectiveCamera pCam;
+
+#define pCamInit {\
+	.pitch = 0, .yaw = 0, \
+	.firstInt = true, \
+	.lastx = 0, .lasty = 0, \
+	.pos = {0, 1, 0}, \
+	.front = {0, 0, -1}, \
+	.proj = {0}, .view = {0}, \
+	.fov = 90, \
+	.sensitivity = 0.5 \
+}
+
+void pCamUpdateView(int width, int height) {
+	pCam.front[0] = cos(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
+	pCam.front[1] = cos(glm_rad(pCam.pitch));
+	pCam.front[2] = sin(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
+	glm_normalize(pCam.front);
+
+	glm_cross(pCam.front, (vec3){0, 1, 0}, pCam.right);
+	glm_normalize(pCam.right);
+
+	glm_cross(pCam.front, pCam.right, pCam.up);
+	glm_normalize(pCam.up);
+
+	glm_vec3_add(pCam.pos, pCam.front, pCam.direction);
+	glm_lookat(pCam.pos, pCam.direction, pCam.up, pCam.view);
+}
+
+void pCamUpdateProj(int width, int height) {
+	glm_perspective(glm_rad(pCam.fov), (float)width / height, 0.1, 1000, pCam.proj);
+}
+
+void pCamOnFovChange(float fov) {
+	pCam.fov = fov;
+	pCamUpdateProj(WINDOW.resx, WINDOW.resy);
+	pCamUpdateView(WINDOW.resx, WINDOW.resy);
+}
+
+void pCamOnResolutionChange(int width, int height) {
+	pCamUpdateProj(width, height);
+	pCamUpdateView(width, height);
+}
+
+
+void pCamPan(double xpos, double ypos) {
+	if (pCam.firstInt) {
+		pCam.lastx = xpos;
+		pCam.lasty = ypos;
+		pCam.firstInt = false;
+	};
+
+	double xoffset = (xpos - pCam.lastx) * pCam.sensitivity;
+	double yoffset = (ypos - pCam.lasty) * pCam.sensitivity;
+
+	pCam.lastx = xpos;
+	pCam.lasty = ypos;
+
+	pCam.yaw = xoffset;
+	pCam.pitch = yoffset;
+
+	pCam.pitch = pCam.yaw > 89.0f ? 89.0f : pCam.yaw;
+	pCam.pitch = pCam.pitch < -89.0f ? -89.0f : pCam.pitch;
+
+	pCamUpdateView(WINDOW.resx, WINDOW.resy);
+}
+
+enum {
+	CMOVE_LEFT, 
+	CMOVE_RIGHT,
+	CMOVE_FORW,
+	CMOVE_BACK,
+};
+
+void pCamMove(int direction, float amount) {
+	float velocity = 0.1;
+	vec3 movement = {0};
+	switch (direction) {
+		case CMOVE_FORW:
+			glm_vec3_add(movement, (vec3){pCam.front[0], 0.0,pCam.front[2]}, movement);
+			break;
+		case CMOVE_BACK:
+			glm_vec3_sub(movement, (vec3){pCam.front[0], 0.0,pCam.front[2]}, movement);
+			break;
+		case CMOVE_RIGHT:
+			glm_vec3_add(movement, pCam.right, movement);
+			break;
+		case CMOVE_LEFT:
+			glm_vec3_sub(movement, pCam.right, movement);
+			break;
+	}
+
+	glm_normalize(movement);
+	glm_vec3_scale(movement, velocity, movement);
+	glm_vec3_add(pCam.pos, movement, pCam.pos);
+}
+
+/*
  * =====
  * @MAIN
  * =====
@@ -425,6 +630,7 @@ struct CubeThing {
 
 int main(void) {
 	LOGGER.out = stderr;
+	PerspectiveCamera pCam = pCamInit;
 
 	Window WINDOW = WINDOW_INIT;
 	if (is_err(windowInit())) {
