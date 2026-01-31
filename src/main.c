@@ -1,4 +1,4 @@
-#include "includes/glad.h"
+#include "glad.h"
 #include "GLFW/glfw3.h"
 #include <stdio.h>
 #include "cglm/cglm.h"
@@ -45,7 +45,7 @@ typedef struct Logger {
 
 Logger LOGGER;
 
-void __log(int level, int line, const char *file, const char *fmt, ...) {
+void glog(int level, int line, const char *file, const char *fmt, ...) {
 	time_t t = time(NULL);
 	tbuf[strftime(tbuf, sizeof(tbuf), "%T", localtime(&t))] = '\0';
 	fprintf(LOGGER.out, "%s \x1b[1;%sm%s\x1b[22;39m\t%s:%d: ", tbuf, logColors[level], logStrs[level], file, line);
@@ -57,10 +57,30 @@ void __log(int level, int line, const char *file, const char *fmt, ...) {
 	fprintf(LOGGER.out, "\n");
 };
 
-#define log_debug(...) __log(DEBUG, __LINE__, __FILE__, __VA_ARGS__);
-#define log_info(...) __log(INFO, __LINE__, __FILE__, __VA_ARGS__);
-#define log_warn(...) __log(WARN, __LINE__, __FILE__, __VA_ARGS__)
-#define log_error(...) __log(ERROR, __LINE__, __FILE__, __VA_ARGS__);
+#define log_debug(...) glog(DEBUG, __LINE__, __FILE__, __VA_ARGS__);
+#define log_info(...) glog(INFO, __LINE__, __FILE__, __VA_ARGS__);
+#define log_warn(...) glog(WARN, __LINE__, __FILE__, __VA_ARGS__)
+#define log_error(...) glog(ERROR, __LINE__, __FILE__, __VA_ARGS__);
+
+GLenum glCheckError_(int line, const char *file)
+{
+    GLenum errorCode;
+    const char *header = "GL ERROR:";
+    while ((errorCode = glGetError()) != GL_NO_ERROR)
+    {
+        switch (errorCode)
+        {
+            case GL_INVALID_ENUM:                  glog(ERROR, line, file, "%s %s", header, "INVALID_ENUM"); break;
+            case GL_INVALID_VALUE:                 glog(ERROR, line, file, "%s %s", header, "INVALID_VALUE"); break;
+            case GL_INVALID_OPERATION:             glog(ERROR, line, file, "%s %s", header, "INVALID_OPERATION"); break;
+            case GL_OUT_OF_MEMORY:                 glog(ERROR, line, file, "%s %s", header, "OUT_OF_MEMORY"); break;
+            case GL_INVALID_FRAMEBUFFER_OPERATION: glog(ERROR, line, file, "%s %s", header, "INVALID_FRAMEBUFFER_OPERATION"); break;
+        }
+    }
+    return errorCode;
+}
+
+#define checkGlError() glCheckError_(__LINE__, __FILE__)
 
 /*
  * ===========================
@@ -166,6 +186,238 @@ void windowTerminate() {
 }
 
 /*
+ * ========
+ * @Things + Generics
+ * ========
+ */
+
+// openGL handles to render an object
+typedef struct {
+	unsigned int vao, shader;
+} RenderInfo;
+
+// matrices necessary for rendering
+typedef struct {
+	mat4 *proj;
+	mat4 *view;
+} RenderMatrices;
+
+// thing types
+enum {
+	THING_TRIANGLE
+};
+
+
+// TODO
+typedef struct {
+} RenderMods;
+
+// physical information about the object being rendered
+typedef struct {
+	vec3 pos;
+	vec3 rot;
+	float height, width;
+} Body;
+
+// Function to render a particular thing
+typedef void (*RenderFunc)(void *self, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods);
+
+// Function to initialize opengl data for a particular thing
+typedef RenderInfo (*RenderInitFunc)();
+
+// Interface for something that is renderable. If we haven't already created vaos, vbos, etc. for the type, then we call the union's init func, otherwise we get its renderinfo.
+typedef struct {
+	RenderFunc rfunc;
+	union {
+		RenderInfo ri;
+		RenderInitFunc rinit;
+	};
+} Renderable;
+
+// A thing
+typedef struct {
+	Body loc;
+	int type;
+	Renderable render;
+	void *self;
+	uint16_t id;
+} Thing;
+
+// TODO: in here check if renderinfo has already been initialized.
+void thingLoadFromData(void *data, int type, Body loc, Thing *dest) {
+	Renderable render;
+	
+
+	// SWTICH STATEMENT FOR TYPE FUNCs
+	// 
+
+	dest->type = type;
+	dest->loc = loc;
+	dest->render = render;
+}
+
+/*
+ * =========
+ * @RENDERER
+ * =========
+ */
+
+typedef kvec_t(Thing) ThingArray;
+
+typedef struct {
+	ThingArray things;
+} Renderer;
+
+static int success;
+static char shaderLog[512];
+
+/* ========
+ * @SHADERS
+ * =======
+ */
+
+unsigned int shaderFromCharVF(const char *vertcode, const char *fragcode) {
+  unsigned int frag, vert;
+
+  vert = glCreateShader(GL_VERTEX_SHADER);
+  glShaderSource(vert, 1, &vertcode, NULL);
+  glCompileShader(vert);
+
+  glGetShaderiv(vert, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    glGetShaderInfoLog(vert, 512, NULL, shaderLog);
+    log_error("Error compiling vertex shader: %s\n", shaderLog);
+  }
+
+  frag = glCreateShader(GL_FRAGMENT_SHADER);
+  glShaderSource(frag, 1, &fragcode, NULL);
+  glCompileShader(frag);
+
+  glGetShaderiv(frag, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    glGetShaderInfoLog(frag, 512, NULL, shaderLog);
+    log_error("Error compiling frag shader: %s\n", shaderLog);
+  }
+
+  unsigned int shader = glCreateProgram();
+  glAttachShader(shader, vert);
+  glAttachShader(shader, frag);
+
+  glLinkProgram(shader);
+
+  glDeleteShader(vert);
+  glDeleteShader(frag);
+
+  return shader;
+}
+
+void shaderSetVec4(unsigned int shader, const char *uni, vec4 dat) {
+  GLint loc = glGetUniformLocation(shader, uni);
+  glUseProgram(shader);
+  glUniform4fv(loc, 1, dat);
+}
+
+void shaderSetMat4(unsigned int shader, const char *uni, mat4 dat) {
+  GLint loc = glGetUniformLocation(shader, uni);
+  if (loc == -1) {
+    printf("Failed to find uniform %s\n", uni);
+  }
+  glUseProgram(shader);
+  glUniformMatrix4fv(loc, 1, GL_FALSE, (float *)dat);
+}
+
+void shaderSetVec3(unsigned int shader, const char *uni, vec3 dat) {
+  GLint loc = glGetUniformLocation(shader, uni);
+  if (loc == -1) {
+    printf("Failed to find uniform %s\n", uni);
+  }
+  glUseProgram(shader);
+  glUniform3fv(loc, 1, dat);
+}
+
+void shaderSetFloat(unsigned int shader, const char *uni, float dat) {
+  GLint loc = glGetUniformLocation(shader, uni);
+  if (loc == -1) {
+    printf("Failed to find uniform %s\n", uni);
+  }
+  glUseProgram(shader);
+  glUniform1f(loc, dat);
+}
+
+void shaderSetUnsignedInt(unsigned int shader, const char *uni,
+                          unsigned int dat) {
+  GLint loc = glGetUniformLocation(shader, uni);
+  if (loc == -1) {
+    printf("Failed to find uniform %s\n", uni);
+  }
+  glUseProgram(shader);
+  glUniform1ui(loc, dat);
+}
+
+/* 
+ * ===========
+ * @PRIMITIVES
+ * ===========
+ */
+
+float TRIANGLE_VERTICES[] = {
+	-0.5, -0.5, -0.5,
+	0.5, -0.5, -0.5,
+	0.0f, 0.5f, -0.5,
+};
+
+typedef struct TriangleThing {
+	vec4 color;
+} TriangleThing;
+
+const char *triangleVert = "#version 330 core\n"
+"layout (location = 0) in vec3 pos;\n"
+"void main() {\n"
+"gl_Position = vec4(pos.xyz, 1.0f);\n"
+"}";
+
+const char *triangleFrag = "#version 330 core\n"
+"out vec4 fragColor;\n"
+"void main() {\n"
+"fragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n"
+"}";
+
+RenderInfo renderInitTriangle() {
+	RenderInfo ret = {0};
+
+	unsigned int vao, vbo;
+
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(TRIANGLE_VERTICES), TRIANGLE_VERTICES, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	glEnableVertexAttribArray(0);
+
+	ret.vao = vao;
+	ret.shader = shaderFromCharVF(triangleVert, triangleFrag);
+
+	checkGlError();
+	return ret;
+}
+
+void renderTriangle(TriangleThing *self, Body *body, RenderInfo ri, RenderMatrices *rm, RenderMods *mods) {
+	log_debug("VAO: %d | SHADER: %d", ri.vao, ri.shader);
+	glBindVertexArray(ri.vao);
+	glUseProgram(ri.shader);
+
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+	checkGlError();
+}
+
+struct CubeThing {
+	vec4 color;
+};
+
+/*
  * =====
  * @MAIN
  * =====
@@ -179,8 +431,15 @@ int main(void) {
 		return 1;
 	}
 
+	RenderInfo ri = renderInitTriangle();
+	TriangleThing t = {0};
+
+
 	while (!windowShouldClose()) {
 		windowNewFrame();
+
+		renderTriangle(&t, NULL, ri, NULL, NULL);
+
 		windowPoll();
 		windowEndFrame();
 	}
@@ -190,11 +449,4 @@ int main(void) {
 	return 0;
 }
 
-/*
- * ========
- * Renderer
- * ========
- */
 
-typedef struct Renderer {
-} Renderer;
