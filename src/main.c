@@ -100,6 +100,22 @@ GLenum glCheckError_(int line, const char *file)
  * - We need to iterate over both the above groups in one loop.
  */
 
+typedef struct Mouse {
+	double xpos, ypos;
+} Mouse;
+
+Mouse MOUSE;
+
+void mousePosUpdate(void *window, double xpos, double ypos) {
+	/* log_debug("%f %f", MOUSE.xpos, MOUSE.ypos); */
+	MOUSE.xpos = xpos;
+	MOUSE.ypos = ypos;
+}
+
+void mouseInit(void *window) {
+	glfwSetCursorPosCallback(window, (GLFWcursorposfun)mousePosUpdate);
+}
+
 enum {
 	KMOVE_FORW,
 	KMOVE_LEFT,
@@ -239,6 +255,11 @@ Result windowInit() {
 	 glfwMakeContextCurrent(WINDOW.window);
 	 glfwGetFramebufferSize(WINDOW.window, &WINDOW.resx, &WINDOW.resy);
 
+	 if (WINDOW.resx == 0){
+	 	 log_error("failed to query screen coordinates");
+	 	 return Err;
+	 }
+
 	 if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	 {
 	 	 log_error("Failed to initialize GLAD!");
@@ -246,6 +267,7 @@ Result windowInit() {
 	 }    
 
 	 keybindingsInit(WINDOW.window);
+	 mouseInit(WINDOW.window);
 
 	 glViewport(0, 0, WINDOW.resx, WINDOW.resy);
 
@@ -454,9 +476,9 @@ void shaderSetUnsignedInt(unsigned int shader, const char *uni,
  */
 
 float TRIANGLE_VERTICES[] = {
-	-0.5, -0.5, -0.5,
-	0.5, -0.5, -0.5,
-	0.0f, 0.5f, -0.5,
+	-0.5, -0.5, 0,
+	0.5, -0.5, 0,
+	0.0f, 0.5f, 0,
 };
 
 typedef struct TriangleThing {
@@ -465,14 +487,19 @@ typedef struct TriangleThing {
 
 const char *triangleVert = "#version 330 core\n"
 "layout (location = 0) in vec3 pos;\n"
+"uniform mat4 proj;\n"
+"uniform mat4 view;\n"
+"uniform mat4 model;\n"
 "void main() {\n"
-"gl_Position = vec4(pos.xyz, 1.0f);\n"
+"gl_Position = proj * view * model * vec4(pos.xyz, 1.0f);\n"
+/* "gl_Position = model * vec4(pos.xyz, 1.0f);\n" */
 "}";
 
 const char *triangleFrag = "#version 330 core\n"
 "out vec4 fragColor;\n"
+"uniform vec4 color;\n"
 "void main() {\n"
-"fragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n"
+"fragColor = color;\n"
 "}";
 
 RenderInfo renderInitTriangle() {
@@ -497,9 +524,20 @@ RenderInfo renderInitTriangle() {
 	return ret;
 }
 
-void renderTriangle(TriangleThing *self, Body *body, RenderInfo ri, RenderMatrices *rm, RenderMods *mods) {
+void renderTriangle(TriangleThing *self, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods) {
 	glBindVertexArray(ri.vao);
 	glUseProgram(ri.shader);
+
+	mat4 model;
+	glm_mat4_identity(model);
+	glm_translate(model, body->pos);
+	glm_scale(model, (vec3){body->width, body->height, 1});
+
+	shaderSetMat4(ri.shader, "proj", *rm.proj);
+	shaderSetMat4(ri.shader, "view", *rm.view);
+	shaderSetMat4(ri.shader, "model", model);
+
+	shaderSetVec4(ri.shader, "color", self->color);
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	checkGlError();
@@ -515,7 +553,7 @@ struct CubeThing {
  * =======
  */
 
-typedef struct PerpsectiveCamera {
+typedef struct PerspectiveCamera {
 	float pitch, yaw;
 	bool firstInt;
 	double lastx, lasty;
@@ -531,23 +569,26 @@ static PerspectiveCamera pCam;
 	.pitch = 0, .yaw = 0, \
 	.firstInt = true, \
 	.lastx = 0, .lasty = 0, \
-	.pos = {0, 1, 0}, \
+	.pos = {0, 1, 3}, \
+	.direction = {0, 0, 0}, \
+	.up = {0, 0, 0}, \
+	.right = {0, 0, 0}, \
 	.front = {0, 0, -1}, \
 	.proj = {0}, .view = {0}, \
 	.fov = 90, \
-	.sensitivity = 0.5 \
+	.sensitivity = 0.1 \
 }
 
 void pCamUpdateView(int width, int height) {
 	pCam.front[0] = cos(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
-	pCam.front[1] = cos(glm_rad(pCam.pitch));
+	pCam.front[1] = sin(glm_rad(pCam.pitch));
 	pCam.front[2] = sin(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
 	glm_normalize(pCam.front);
 
 	glm_cross(pCam.front, (vec3){0, 1, 0}, pCam.right);
 	glm_normalize(pCam.right);
 
-	glm_cross(pCam.front, pCam.right, pCam.up);
+	glm_cross(pCam.right, pCam.front, pCam.up);
 	glm_normalize(pCam.up);
 
 	glm_vec3_add(pCam.pos, pCam.front, pCam.direction);
@@ -578,15 +619,15 @@ void pCamPan(double xpos, double ypos) {
 	};
 
 	double xoffset = (xpos - pCam.lastx) * pCam.sensitivity;
-	double yoffset = (ypos - pCam.lasty) * pCam.sensitivity;
+	double yoffset = (pCam.lasty - ypos) * pCam.sensitivity;
 
 	pCam.lastx = xpos;
 	pCam.lasty = ypos;
 
-	pCam.yaw = xoffset;
-	pCam.pitch = yoffset;
+	pCam.yaw += xoffset;
+	pCam.pitch += yoffset;
 
-	pCam.pitch = pCam.yaw > 89.0f ? 89.0f : pCam.yaw;
+	pCam.pitch = pCam.pitch > 89.0f ? 89.0f : pCam.pitch;
 	pCam.pitch = pCam.pitch < -89.0f ? -89.0f : pCam.pitch;
 
 	pCamUpdateView(WINDOW.resx, WINDOW.resy);
@@ -630,23 +671,28 @@ void pCamMove(int direction, float amount) {
 
 int main(void) {
 	LOGGER.out = stderr;
-	PerspectiveCamera pCam = pCamInit;
+	pCam = (PerspectiveCamera)pCamInit;
 
-	Window WINDOW = WINDOW_INIT;
+	WINDOW = (Window)WINDOW_INIT;
 	if (is_err(windowInit())) {
 		return 1;
 	}
 
+	pCamOnResolutionChange(WINDOW.resx, WINDOW.resy);
+
 	RenderInfo ri = renderInitTriangle();
-	TriangleThing t = {0};
+	TriangleThing t = {.color = {0, 0, 1, 1}};
+	Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2};
 
 
 	while (!windowShouldClose()) {
 		windowNewFrame();
-
-		renderTriangle(&t, NULL, ri, NULL, NULL);
-
 		windowPoll();
+
+		pCamPan(MOUSE.xpos, MOUSE.ypos);
+
+		renderTriangle(&t, &tbody, ri, (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, NULL);
+
 		windowEndFrame();
 	}
 
