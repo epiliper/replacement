@@ -155,37 +155,33 @@ KEYBIND(GLFW_KEY_D, 							NO_CALLBACK), // right
 KEYBIND(GLFW_KEY_S, 							NO_CALLBACK), // back
 KEYBIND(GLFW_KEY_SPACE,						NO_CALLBACK), // jump
 
-KEYBIND(GLFW_KEY_PAUSE,						CALLBACK_TOGGLE), // pause
+KEYBIND(GLFW_KEY_ESCAPE,					CALLBACK_TOGGLE), // pause
 
 KEYBIND(GLFW_MOUSE_BUTTON_LEFT,		CALLBACK_TOGGLE), // shoot
 KEYBIND(GLFW_MOUSE_BUTTON_RIGHT,	CALLBACK_TOGGLE), // aim
 KEYBIND(GLFW_KEY_R,								CALLBACK_TOGGLE), // reload
 };
 
+#define PRESSED(int) Keybinds[int].pressed
+
 // Check for key presses and respect callbacks.
 // TODO: we check every single entry on a keypress. Create a mapping between key and action to save checks.
-void keybindingsPoll(void *window, int key, int action, int mods) {
+void keybindingsPoll(void *window, int key, int scancode, int action, int mods) {
 	int k, c;
 	for (int i = 0; i < K_BINDS; i++) {
 		k = Keybinds[i].key;
 		c = Keybinds[i].callback;
 
-		switch (c) {
-			case NO_CALLBACK:
-				if (key == k) {
-					Keybinds[key].pressed = 1;
-				} else {
-					Keybinds[key].pressed = 0;
-				}
-				break;
-
-			case CALLBACK_TOGGLE:
-				if (key == k && action == GLFW_PRESS) {
-					Keybinds[key].pressed = 1;
-				} else {
-					Keybinds[key].pressed = 0;
-				}
-				break;
+		if (key == k) {
+			switch (c) {
+				case NO_CALLBACK:
+					Keybinds[i].pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
+					break;
+				case CALLBACK_TOGGLE:
+					Keybinds[i].pressed = (action == GLFW_PRESS);
+					break;
+			}
+			break;
 		}
 	}
 }
@@ -209,11 +205,12 @@ typedef struct {
 	GLFWmonitor *monitor;
 	int resy, resx;
 	int fullscreen;
+	int vsync;
 } Window;
 
 Window WINDOW;
 
-#define WINDOW_INIT {.window = NULL, .monitor = NULL, .resy = 0, .resx = 0, .fullscreen = 1 }
+#define WINDOW_INIT {.window = NULL, .monitor = NULL, .resy = 0, .resx = 0, .fullscreen = 1, .vsync = 1 }
 
 #define WIN_FALLBACK_X 1920
 #define WIN_FALLBACK_Y 1080
@@ -269,6 +266,7 @@ Result windowInit() {
 	 keybindingsInit(WINDOW.window);
 	 mouseInit(WINDOW.window);
 
+	 glfwSwapInterval(1);
 	 glViewport(0, 0, WINDOW.resx, WINDOW.resy);
 
  	 return Ok;
@@ -492,7 +490,6 @@ const char *triangleVert = "#version 330 core\n"
 "uniform mat4 model;\n"
 "void main() {\n"
 "gl_Position = proj * view * model * vec4(pos.xyz, 1.0f);\n"
-/* "gl_Position = model * vec4(pos.xyz, 1.0f);\n" */
 "}";
 
 const char *triangleFrag = "#version 330 core\n"
@@ -575,7 +572,7 @@ static PerspectiveCamera pCam;
 	.right = {0, 0, 0}, \
 	.front = {0, 0, -1}, \
 	.proj = {0}, .view = {0}, \
-	.fov = 90, \
+	.fov = 45, \
 	.sensitivity = 0.1 \
 }
 
@@ -640,7 +637,7 @@ enum {
 	CMOVE_BACK,
 };
 
-void pCamMove(int direction, float amount) {
+void pCamMove(int direction) {
 	float velocity = 0.1;
 	vec3 movement = {0};
 	switch (direction) {
@@ -661,6 +658,26 @@ void pCamMove(int direction, float amount) {
 	glm_normalize(movement);
 	glm_vec3_scale(movement, velocity, movement);
 	glm_vec3_add(pCam.pos, movement, pCam.pos);
+}
+
+/*
+ * =======
+ * @PLAYER
+ * =======
+ */
+void updatePlayer() {
+	if (PRESSED(KMOVE_FORW)) {
+		pCamMove(CMOVE_FORW);
+	}
+	if (PRESSED(KMOVE_LEFT)) {
+		pCamMove(CMOVE_LEFT);
+	}
+	if (PRESSED(KMOVE_RIGHT)) {
+		pCamMove(CMOVE_RIGHT);
+	}
+	if (PRESSED(KMOVE_BACK)) {
+		pCamMove(CMOVE_BACK);
+	}
 }
 
 /*
@@ -688,6 +705,7 @@ int main(void) {
 	while (!windowShouldClose()) {
 		windowNewFrame();
 		windowPoll();
+		updatePlayer();
 
 		pCamPan(MOUSE.xpos, MOUSE.ypos);
 
@@ -700,5 +718,3 @@ int main(void) {
 
 	return 0;
 }
-
-
