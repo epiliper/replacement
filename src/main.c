@@ -298,7 +298,7 @@ Result windowInit() {
 
 // Prepare for rendering
 void windowNewFrame() {
-  glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
 }
 
@@ -565,13 +565,34 @@ void shaderSetUnsignedInt(unsigned int shader, const char* uni,
  * ===========
  */
 
+// clang-format off
 float TRIANGLE_VERTICES[] = {
-    -0.5, -0.5, 0, 0.5, -0.5, 0, 0.0f, 0.5f, 0,
+    -0.5, -0.5, 0, 
+    0.5, -0.5, 0, 
+    0.0f, 0.5f, 0,
 };
+
+float SQUARE_VERTICES[] = {
+	-0.5, -0.5, 0,
+	0.5, -0.5, 0,
+	0.5, 0.5, 0,
+	-0.5, 0.5, 0
+};
+
+unsigned int SQUARE_INDICES[] = {
+	0, 1, 2,
+	2, 3, 0
+};
+
+// clang-format on
 
 typedef struct TriangleThing {
   vec4 color;
 } TriangleThing;
+
+typedef struct SquareThing {
+  vec4 color;
+} SquareThing;
 
 const char* triangleVert =
     "#version 330 core\n"
@@ -614,14 +635,43 @@ RenderInfo renderInitTriangle() {
   return ret;
 }
 
+RenderInfo renderSquareInit() {
+  RenderInfo ri;
+
+  unsigned int vbo, ebo;
+  glGenVertexArrays(1, &ri.vao);
+  glGenBuffers(1, &vbo);
+  glGenBuffers(1, &ebo);
+
+  glBindVertexArray(ri.vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(SQUARE_VERTICES), SQUARE_VERTICES,
+               GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(SQUARE_INDICES), SQUARE_INDICES,
+               GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0);
+
+  ri.shader = shaderFromCharVF(triangleVert, triangleFrag);
+  checkGlError();
+
+  return ri;
+};
+
 void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
                     RenderMatrices rm, RenderMods* mods) {
   glBindVertexArray(ri.vao);
   glUseProgram(ri.shader);
-
   mat4 model;
   glm_mat4_identity(model);
   glm_translate(model, body->pos);
+
+  glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
+  glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
+
   glm_scale(model, (vec3){body->width, body->height, 1});
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);
@@ -633,6 +683,29 @@ void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
   glDrawArrays(GL_TRIANGLES, 0, 3);
   checkGlError();
 }
+
+void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
+                  RenderMatrices rm, RenderMods* mods) {
+  glUseProgram(ri.shader);
+  glBindVertexArray(ri.vao);
+
+  mat4 model;
+  glm_mat4_identity(model);
+  glm_translate(model, body->pos);
+
+  glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
+  glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
+
+  glm_scale(model, (vec3){body->width, body->height, 1});
+
+  shaderSetMat4(ri.shader, "proj", *rm.proj);
+  shaderSetMat4(ri.shader, "view", *rm.view);
+  shaderSetMat4(ri.shader, "model", model);
+
+  shaderSetVec4(ri.shader, "color", self->color);
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+  checkGlError();
+};
 
 struct CubeThing {
   vec4 color;
@@ -834,22 +907,22 @@ Result textInit() {
   GL glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_R8, 256, 256, 128, 0, GL_RED,
                   GL_UNSIGNED_BYTE, 0);
 
+  GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
   for (unsigned int c = 0; c < 128; c++) {
     if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
       log_error("Failed to load char %d", c);
       return Err;
     }
 
-    GL glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, (int)c,
-                       face->glyph->bitmap.width, face->glyph->bitmap.rows, 1,
-                       GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
-
-    GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S,
-                       GL_CLAMP_TO_EDGE);
-    GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T,
-                       GL_CLAMP_TO_EDGE);
-    GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    if (face->glyph->bitmap.buffer) {
+      GL glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, (int)c,
+                         face->glyph->bitmap.width, face->glyph->bitmap.rows, 1,
+                         GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+    }
 
     Character ch = {
         .advance = face->glyph->advance.x,
@@ -973,9 +1046,12 @@ int main(void) {
   textInit();
   RenderInfo ri = renderInitTriangle();
   RenderInfo tri = renderTextInit();
+  RenderInfo sri = renderSquareInit();
 
   TriangleThing t = {.color = {0, 0, 1, 1}};
-  Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2};
+  SquareThing s = {.color = {0, 0, 1, 1}};
+  Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
+  Body sbody = {.pos = {0, -1, -5}, .height = 2, .width = 2, .rot = {90, 0, 0}};
 
   while (!windowShouldClose()) {
     windowNewFrame();
@@ -987,6 +1063,10 @@ int main(void) {
     renderTriangle(&t, &tbody, ri,
                    (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
                    NULL);
+
+    renderSquare(&s, &sbody, sri,
+                 (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
+                 NULL);
 
     renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8, 0.2},
                50);

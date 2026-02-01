@@ -1,5 +1,5 @@
 BIN := REPLACEMENT
-PKG_CONF := $(shell pkg-config --libs --cflags glfw3 cglm) -lm
+PKG_CONF := $(shell pkg-config --libs --cflags glfw3 cglm freetype2) -lm
 INCLUDES := -I includes
 S := src
 MEMDBG := -fsanitize=address
