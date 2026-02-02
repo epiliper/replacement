@@ -136,6 +136,15 @@ void shaderSetUnsignedInt(unsigned int shader, const char* uni,
   glUniform1ui(loc, dat);
 }
 
+void shaderSetInt(unsigned int shader, const char* uni, int dat) {
+  GLint loc = glGetUniformLocation(shader, uni);
+  if (loc == -1) {
+    printf("Failed to find uniform %s\n", uni);
+  }
+  /* glUseProgram(shader); */
+  glUniform1i(loc, dat);
+}
+
 /*
  * =====
  * @FILE

@@ -19,6 +19,8 @@ void shaderSetFloat(unsigned int shader, const char* uni, float dat);
 void shaderSetUnsignedInt(unsigned int shader, const char* uni,
                           unsigned int dat);
 
+void shaderSetInt(unsigned int shader, const char* uni, int dat);
+
 /*
  * =====
  * @FILE

@@ -3,8 +3,11 @@
 #include "kvec.h"
 #include "thing.h"
 #include "stdio.h"
+#include "utils.h"
 
 #include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include <stddef.h>
 
 typedef struct MeshVertex {
@@ -80,17 +83,34 @@ void meshDraw(Mesh* m) {
 
     switch (m->textures.a[i].type) {
       case (T_DIFFUSE):
-        snprintf(uniform, 256, "material.%s%d", textureNames[T_DIFFUSE],
-                 diffuseNr);
+        uniform[snprintf(uniform, 256, "material.%s%d", textureNames[T_DIFFUSE],
+                         diffuseNr)] = '\0';
         diffuseNr++;
         break;
       case (T_SPECULAR):
-        snprintf(uniform, 256, "material.%s%d", textureNames[T_SPECULAR],
-                 specularNr);
+        uniform[snprintf(uniform, 256, "material.%s%d",
+                         textureNames[T_SPECULAR], specularNr)] = '\0';
         specularNr++;
         break;
       case (T_OTHER):
         break;
     }
+
+    shaderSetInt(m->ri.shader, uniform, (int)i);
+    glBindTexture(GL_TEXTURE_2D, m->textures.a[i].id);
   }
+
+  glActiveTexture(GL_TEXTURE0);
+
+  glBindVertexArray(m->ri.vao);
+  glDrawElements(GL_TRIANGLES, m->indices.n, GL_UNSIGNED_INT, 0);
+  glBindVertexArray(0);
 }
+
+typedef kvec_t(Mesh) MeshVec;
+
+typedef struct Model {
+  MeshVec meshes;
+} Model;
+
+void modelLoadFromFile(const char* path);
