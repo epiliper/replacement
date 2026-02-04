@@ -1,6 +1,8 @@
 #include "glad.h"
 #include "utils.h"
 #include "log.h"
+
+#include <string.h>
 /*
  * ========
  * @SHADERS
@@ -9,6 +11,18 @@
 
 static int success;
 static char shaderLog[512];
+
+const char* rsplitOnce(char* input, const char* delim) {
+  char* prev = NULL;
+  char* token = strtok(input, delim);
+
+  while (token) {
+    prev = strdup(token);
+    token = strtok(NULL, delim);
+  }
+
+  return prev;
+}
 
 unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile) {
   unsigned int frag, vert;

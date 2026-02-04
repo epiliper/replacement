@@ -122,140 +122,150 @@ typedef struct Model {
 
 char workbuf[1024];
 
-unsigned int textureFromFile(const char *file, const char *directory, bool gamma) {
-	workbuf[snprintf(workbuf, 1024, "%s/%s", directory, file)] = '\0';
+unsigned int textureFromFile(const char* file, const char* directory,
+                             bool gamma) {
+  workbuf[snprintf(workbuf, 1024, "%s/%s", directory, file)] = '\0';
 
-	unsigned int texid;
-	glGenTextures(1, &texid);
+  unsigned int texid;
+  glGenTextures(1, &texid);
 
-	int width, height, nrComponents;
-	unsigned char *data = stbi_load(workbuf, &width, &height, &nrComponents, 0);
-	if (!data) {
-		log_error("Failed to load texture at path %s", workbuf);
-		stbi_image_free(data);
-		return -1;
-	}
+  int width, height, nrComponents;
+  unsigned char* data = stbi_load(workbuf, &width, &height, &nrComponents, 0);
+  if (!data) {
+    log_error("Failed to load texture at path %s", workbuf);
+    stbi_image_free(data);
+    return -1;
+  }
 
-	GLenum format;
-	if (nrComponents == 1) {
-		format = GL_RED;
-	} else if (nrComponents == 3) {
-		format = GL_RGB;
-			}
-	else if (nrComponents == 4) {
-		format = GL_RGBA;
-	}
+  GLenum format;
+  if (nrComponents == 1) {
+    format = GL_RED;
+  } else if (nrComponents == 3) {
+    format = GL_RGB;
+  } else if (nrComponents == 4) {
+    format = GL_RGBA;
+  }
 
-	glBindTexture(GL_TEXTURE_2D, texid);
-	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-	glGenerateMipmap(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, texid);
+  glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
+               GL_UNSIGNED_BYTE, data);
+  glGenerateMipmap(GL_TEXTURE_2D);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	stbi_image_free(data);
+  stbi_image_free(data);
 
-	return texid;
+  return texid;
 }
 
-void loadMaterialTextures(struct aiMaterial *mat, enum aiTextureType type, const char *name, const char *dir, mTexVec *textures) {
-	int texcount = aiGetMaterialTextureCount(mat, type);
-	for (unsigned int i = 0; i < texcount; i++) {
-		struct aiString str;
-		aiGetMaterialTexture(mat, type, i, &str, NULL, NULL, NULL, NULL, NULL, NULL);
-		MeshTexture *dest = (kv_pushp(MeshTexture, (*textures)));
-		dest->id = textureFromFile(str.data, dir, 0);
-		dest->type = type
+void loadMaterialTextures(struct aiMaterial* mat, enum aiTextureType type,
+                          int typeName, const char* dir, mTexVec* textures) {
+  int texcount = aiGetMaterialTextureCount(mat, type);
+  for (unsigned int i = 0; i < texcount; i++) {
+    struct aiString str;
+    aiGetMaterialTexture(mat, type, i, &str, NULL, NULL, NULL, NULL, NULL,
+                         NULL);
+    MeshTexture* dest = (kv_pushp(MeshTexture, (*textures)));
+    dest->id = textureFromFile(str.data, dir, 0);
+    dest->type = typeName;
 
-		// TODO: check for already loaded textures
-		/* kv_push(MeshTexture, *textures, */ 
-
-	}
+    // TODO: check for already loaded textures
+    /* kv_push(MeshTexture, *textures, */
+  }
 }
 
-void processAssimpMesh(const struct aiMesh *mesh, const struct aiScene *scene, Mesh *dest) {
-	vec3 vector;
-	MeshVertex vert;
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-		vector[0] = mesh->mVertices[i].x;
-		vector[1] = mesh->mVertices[i].y;
-		vector[2] = mesh->mVertices[i].z;
-		glm_vec3_copy(vector, vert.pos);
+void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
+                       Mesh* dest) {
+  vec3 vector;
+  MeshVertex vert;
+  for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+    vector[0] = mesh->mVertices[i].x;
+    vector[1] = mesh->mVertices[i].y;
+    vector[2] = mesh->mVertices[i].z;
+    glm_vec3_copy(vector, vert.pos);
 
-		if (mesh->mNormals) {
-			vector[0] = mesh->mNormals[i].x;
-			vector[1] = mesh->mNormals[i].y;
-			vector[2] = mesh->mNormals[i].z;
-			glm_vec3_copy(vector, vert.normals);
-		}
+    if (mesh->mNormals) {
+      vector[0] = mesh->mNormals[i].x;
+      vector[1] = mesh->mNormals[i].y;
+      vector[2] = mesh->mNormals[i].z;
+      glm_vec3_copy(vector, vert.normals);
+    }
 
-		if (mesh->mTextureCoords[0]) {
-			vec2 vec;
-			vec[0] = mesh->mTextureCoords[0][i].x;
-			vec[1] = mesh->mTextureCoords[0][i].y;
-			glm_vec2_copy(vec, vert.texcoords);
+    if (mesh->mTextureCoords[0]) {
+      vec2 vec;
+      vec[0] = mesh->mTextureCoords[0][i].x;
+      vec[1] = mesh->mTextureCoords[0][i].y;
+      glm_vec2_copy(vec, vert.texcoords);
 
-			vector[0] = mesh->mTangents[i].x;
-			vector[1] = mesh->mTangents[i].y;
-			vector[2] = mesh->mTangents[i].z;
-			glm_vec3_copy(vector, vert.tangent);
+      vector[0] = mesh->mTangents[i].x;
+      vector[1] = mesh->mTangents[i].y;
+      vector[2] = mesh->mTangents[i].z;
+      glm_vec3_copy(vector, vert.tangent);
 
-			vector[0] = mesh->mBitangents[i].x;
-			vector[1] = mesh->mBitangents[i].y;
-			vector[2] = mesh->mBitangents[i].z;
-			glm_vec3_copy(vector, vert.bitangent);
+      vector[0] = mesh->mBitangents[i].x;
+      vector[1] = mesh->mBitangents[i].y;
+      vector[2] = mesh->mBitangents[i].z;
+      glm_vec3_copy(vector, vert.bitangent);
 
-		} else {
-			glm_vec2_copy((vec2){0.0f, 0.0f}, vert.texcoords);
-		}
+    } else {
+      glm_vec2_copy((vec2){0.0f, 0.0f}, vert.texcoords);
+    }
 
-		kv_push(MeshVertex, dest->vertices, vert);
-	}
+    kv_push(MeshVertex, dest->vertices, vert);
+  }
 
-	for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
-		struct aiFace face = mesh->mFaces[i];
-		for (unsigned int j = 0; j < face.mNumIndices; j++) {
-			kv_push(unsigned int, dest->indices, face.mIndices[j]);
-		}
-	}
+  for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
+    struct aiFace face = mesh->mFaces[i];
+    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+      kv_push(unsigned int, dest->indices, face.mIndices[j]);
+    }
+  }
 
-	// materials
-	struct aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+  // materials
+  struct aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-	/// Diffuse
-	
-	/// Specular
-	
-	/// Normal
-	
-	/// Height
+  /// Diffuse
+  loadMaterialTextures(material, aiTextureType_DIFFUSE, T_DIFFUSE,
+                       dest->textures);
+
+  /// Specular
+
+  /// Normal
+
+  /// Height
 };
 
-void processAssimpNode(Model *model, struct aiNode *node, const struct aiScene *scene) {
-	for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-		struct aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-		Mesh* dest = (kv_pushp(Mesh, model->meshes));
-		processAssimpMesh(mesh, scene, dest);
-	}
+void processAssimpNode(Model* model, struct aiNode* node,
+                       const struct aiScene* scene) {
+  for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+    struct aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+    Mesh* dest = (kv_pushp(Mesh, model->meshes));
+    processAssimpMesh(mesh, scene, dest);
+  }
 
-	for (unsigned int i = 0; i < node->mNumChildren; i++) {
-		processAssimpNode(model, node->mChildren[i], scene);
-	}
+  for (unsigned int i = 0; i < node->mNumChildren; i++) {
+    processAssimpNode(model, node->mChildren[i], scene);
+  }
 }
 
-Result modelLoadFromFile(Model *model, const char* path) {
-	const struct aiScene *scene = aiImportFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+Result modelLoadFromFile(Model* model, char* path) {
+  const struct aiScene* scene =
+      aiImportFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
 
-	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
-		log_error("Failed to import scene from %s", path);
-		return Err;
-	}
+  if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
+      !scene->mRootNode) {
+    log_error("Failed to import scene from %s", path);
+    return Err;
+  }
+  char* dir;
 
+  dir = strtok(path, "/");
+  while (dir) {
+  }
 
-
-
-
-	return Ok;
+  return Ok;
 };

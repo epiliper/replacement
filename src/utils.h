@@ -8,6 +8,8 @@
  * =======
  */
 
+const char* rSplitONce(char* input, const char* delim);
+
 unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile);
 
 unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode);
