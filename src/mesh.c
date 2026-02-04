@@ -1,31 +1,77 @@
 #include "cglm/cglm.h"
 #include "glad.h"
-#include "kvec.h"
-#include "thing.h"
 #include "stdio.h"
 #include "utils.h"
-#include "log.h"
+#include <stddef.h>
+#include "mesh.h"
 
 #include "stdio.h"
-#include "stbi_image.h"
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/cimport.h>
 
-#include <stddef.h>
 
-typedef struct MeshVertex {
-  vec3 pos;
-  vec3 normals;
-  vec2 texcoords;
-  vec3 tangent;
-  vec3 bitangent;
-} MeshVertex;
+static int modelLoaderInitialized = 0;
+
+struct TextureCache {
+	kvec_t(char*) loaded;
+};
+
+struct TextureCache TEXTURE_CACHE;
+
+
+void textureCacheAdd(char *t)
+{
+	char *str = strdup(t);
+	kv_push(char*, TEXTURE_CACHE.loaded, t);
+}
+
+int textureCacheContains(char *t) {
+	for (int i = 0; i < TEXTURE_CACHE.loaded.n; i++) {
+		if (!strcmp(t, TEXTURE_CACHE.loaded.a[i])) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+void modelLoaderInit() {
+	if (modelLoaderInitialized) {
+		return;
+	}
+
+	kv_init(TEXTURE_CACHE.loaded);
+	modelLoaderInitialized = 1;
+}
+
+const char *modelVert = "#version 330 core\n"
+"layout(location = 0) in vec3 aPos;\n"
+"layout(location = 1) in vec3 aNormal;\n"
+"layout(location = 2) in vec2 aTexCoords;\n"
+"out vec2 TexCoords;\n"
+"uniform mat4 projection;\n"
+"uniform mat4 view;\n"
+"uniform mat4 model;\n"
+"void main() {\n"
+"TexCoords = aTexCoords;\n"
+"gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+"}\n";
+
+const char *modelFrag = "#version 330 core\n"
+"out vec4 fragColor;\n"
+"in vec2 TexCoords;\n"
+"uniform sampler2D texture_diffuse1;\n"
+"void main() {\n"
+"fragColor = texture(texture_diffuse1, TexCoords);\n"
+"}";
 
 enum TEXTURE_TYPE {
   T_SPECULAR,
   T_DIFFUSE,
+  T_NORMAL,
+  T_AMBIENT,
   T_OTHER,
   T_TYPES,
 };
@@ -33,24 +79,11 @@ enum TEXTURE_TYPE {
 const char* textureNames[T_TYPES] = {
     "texture_specular",
     "texture_diffuse",
+    "texture_normal",
+    "texture_height",
     "texture_other",
 };
 
-typedef struct MeshTexture {
-  unsigned int id;
-  int type;
-} MeshTexture;
-
-typedef kvec_t(MeshVertex) mVertVec;
-typedef kvec_t(MeshTexture) mTexVec;
-typedef kvec_t(unsigned int) mIndVec;
-
-typedef struct Mesh {
-  mVertVec vertices;
-  mTexVec textures;
-  mIndVec indices;
-  RenderInfo ri;
-} Mesh;
 
 void meshSetup(Mesh* dest) {
   unsigned int vbo, ebo;
@@ -65,8 +98,8 @@ void meshSetup(Mesh* dest) {
                dest->vertices.a, GL_STATIC_DRAW);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, dest->vertices.n * sizeof(unsigned int),
-               dest->vertices.a, GL_STATIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, dest->indices.n * sizeof(unsigned int),
+               dest->indices.a, GL_STATIC_DRAW);
 
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)0);
@@ -90,17 +123,18 @@ void meshDraw(Mesh* m) {
 
     switch (m->textures.a[i].type) {
       case (T_DIFFUSE):
-        uniform[snprintf(uniform, 256, "material.%s%d", textureNames[T_DIFFUSE],
+        uniform[snprintf(uniform, 256, "%s%d", textureNames[T_DIFFUSE],
                          diffuseNr)] = '\0';
         diffuseNr++;
         break;
       case (T_SPECULAR):
-        uniform[snprintf(uniform, 256, "material.%s%d",
+        uniform[snprintf(uniform, 256, "%s%d",
                          textureNames[T_SPECULAR], specularNr)] = '\0';
         specularNr++;
         break;
-      case (T_OTHER):
-        break;
+
+      default:
+      	continue;
     }
 
     shaderSetInt(m->ri.shader, uniform, (int)i);
@@ -114,17 +148,19 @@ void meshDraw(Mesh* m) {
   glBindVertexArray(0);
 }
 
-typedef kvec_t(Mesh) MeshVec;
-
-typedef struct Model {
-  MeshVec meshes;
-} Model;
-
 char workbuf[1024];
+
+void modelDraw(Model *m) {
+	for (unsigned int i = 0; i < m->meshes.n; i++) {
+		meshDraw(&m->meshes.a[i]);
+	}
+} 
 
 unsigned int textureFromFile(const char* file, const char* directory,
                              bool gamma) {
   workbuf[snprintf(workbuf, 1024, "%s/%s", directory, file)] = '\0';
+
+  stbi_set_flip_vertically_on_load(true);
 
   unsigned int texid;
   glGenTextures(1, &texid);
@@ -169,17 +205,21 @@ void loadMaterialTextures(struct aiMaterial* mat, enum aiTextureType type,
     struct aiString str;
     aiGetMaterialTexture(mat, type, i, &str, NULL, NULL, NULL, NULL, NULL,
                          NULL);
+
+    if (textureCacheContains(str.data))
+    	continue;
+
+    log_debug("Loading texture %s", str.data);
     MeshTexture* dest = (kv_pushp(MeshTexture, (*textures)));
     dest->id = textureFromFile(str.data, dir, 0);
     dest->type = typeName;
 
-    // TODO: check for already loaded textures
-    /* kv_push(MeshTexture, *textures, */
+    textureCacheAdd(str.data);
   }
 }
 
 void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
-                       Mesh* dest) {
+                       const char *directory, Mesh* dest) {
   vec3 vector;
   MeshVertex vert;
   for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
@@ -230,42 +270,68 @@ void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
 
   /// Diffuse
   loadMaterialTextures(material, aiTextureType_DIFFUSE, T_DIFFUSE,
-                       dest->textures);
-
+                       directory, &dest->textures);
   /// Specular
+  loadMaterialTextures(material, aiTextureType_SPECULAR, T_SPECULAR,
+  		directory, &dest->textures);
 
   /// Normal
+  loadMaterialTextures(material, aiTextureType_HEIGHT, T_NORMAL,
+  		directory, &dest->textures);
 
   /// Height
-};
+  loadMaterialTextures(material, aiTextureType_AMBIENT, T_AMBIENT,
+  		directory, &dest->textures);
+}
+
+static int node_count = 0;
+static int mesh_count = 0;;
 
 void processAssimpNode(Model* model, struct aiNode* node,
                        const struct aiScene* scene) {
+  node_count++;
+	if (node_count % 100 == 0) {
+    log_debug("Processed %d nodes, %d meshes so far", node_count, mesh_count);
+  }
+
+  log_debug("Processing node %s with %d meshes", node->mName.data, node->mNumMeshes);
+
   for (unsigned int i = 0; i < node->mNumMeshes; i++) {
     struct aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+    mesh_count++;
     Mesh* dest = (kv_pushp(Mesh, model->meshes));
-    processAssimpMesh(mesh, scene, dest);
+
+    kv_init(dest->indices);
+    kv_init(dest->textures);
+    kv_init(dest->vertices);
+
+    processAssimpMesh(mesh, scene, model->directory, dest);
   }
 
   for (unsigned int i = 0; i < node->mNumChildren; i++) {
+  	log_debug("Processing child %d: %s", i, node->mChildren[i]->mName);
     processAssimpNode(model, node->mChildren[i], scene);
   }
 }
 
 Result modelLoadFromFile(Model* model, char* path) {
+	if (!modelLoaderInitialized) {
+		log_error("Attempted to load model when modelLoader not initialized!");
+		return Err;
+	}
+	kv_init(model->meshes);
   const struct aiScene* scene =
-      aiImportFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+      aiImportFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
       !scene->mRootNode) {
     log_error("Failed to import scene from %s", path);
     return Err;
   }
-  char* dir;
 
-  dir = strtok(path, "/");
-  while (dir) {
-  }
+  model->directory = rSplitOnce(path, "/", 0);
+  log_info("using directory %s for model %s", model->directory, path);
+  processAssimpNode(model, scene->mRootNode, scene);
 
   return Ok;
 };

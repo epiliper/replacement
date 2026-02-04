@@ -12,16 +12,43 @@
 static int success;
 static char shaderLog[512];
 
-const char* rsplitOnce(char* input, const char* delim) {
-  char* prev = NULL;
-  char* token = strtok(input, delim);
+enum {
+	LEFT,
+	RIGHT,
+};
 
-  while (token) {
-    prev = strdup(token);
-    token = strtok(NULL, delim);
-  }
+const char* rSplitOnce(const char* input, const char* delim, int side) {
+	int matchlen = 0;
+	int delimlen = strlen(delim);
+	int found = 0;
+	int i = 0;
 
-  return prev;
+	int d = delimlen - 1;
+
+	for (i = strlen(input) - 1; i >= 0; i--) {
+		if (input[i] == delim[d]) {
+			d--;
+			if (d < 0) {
+				found = 1;
+				break;
+			}
+		} else {
+			d = delimlen - 1;
+		}
+	}
+
+	if (found) {
+		if (side == RIGHT) {
+			return strdup(&input[i + 1]);
+		} else {
+			char *ret = malloc(sizeof(char) * (i + 1));
+			memcpy(ret, input, sizeof(char) * (i + 1));
+			ret[i] = '\0';
+			return ret;
+		}
+	}
+
+	return NULL;
 }
 
 unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile) {
@@ -100,6 +127,13 @@ unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode) {
   glAttachShader(shader, frag);
 
   glLinkProgram(shader);
+
+  glGetProgramiv(shader, GL_LINK_STATUS, &success);
+  if (!success) {
+    glGetProgramInfoLog(shader, 512, NULL, shaderLog);
+    log_error("SHADER LINKING FAILED:\n%s\n", shaderLog);
+  }
+
 
   glDeleteShader(vert);
   glDeleteShader(frag);

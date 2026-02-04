@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stdarg.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+
 #include "glad.h"
 #include "GLFW/glfw3.h"
 #include "cglm/cglm.h"
@@ -8,6 +10,8 @@
 #include "thing.h"
 #include "utils.h"
 #include "log.h"
+
+#include "mesh.h"
 
 #include "ft2build.h"
 #include FT_FREETYPE_H
@@ -213,7 +217,7 @@ Result windowInit() {
 // Prepare for rendering
 void windowNewFrame() {
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 // Get inputs from player
@@ -743,6 +747,7 @@ int main(void) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   textInit();
+  modelLoaderInit();
   RenderInfo ri = renderInitTriangle();
   RenderInfo tri = renderTextInit();
   RenderInfo sri = renderSquareInit();
@@ -752,6 +757,15 @@ int main(void) {
   Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
   Body sbody = {.pos = {0, -1, -5}, .height = 2, .width = 2, .rot = {90, 0, 0}};
 
+  unsigned int modelShader = shaderFromCharVF(modelVert, modelFrag);
+  Model backpack = {0};
+
+  if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj"))) {
+  		return 1;
+  		};
+
+	glUseProgram(modelShader);
+
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
@@ -759,16 +773,25 @@ int main(void) {
 
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
-    renderTriangle(&t, &tbody, ri,
-                   (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
-                   NULL);
+		mat4 model;
+		glm_mat4_identity(model);
 
-    renderSquare(&s, &sbody, sri,
-                 (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
-                 NULL);
+		shaderSetMat4(modelShader, "projection", pCam.proj);
+		shaderSetMat4(modelShader, "view", pCam.view);
+		shaderSetMat4(modelShader, "model", model);
 
-    renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8, 0.2},
-               50);
+		modelDraw(&backpack);
+
+    /* renderTriangle(&t, &tbody, ri, */
+    /*                (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
+    /*                NULL); */
+
+    /* renderSquare(&s, &sbody, sri, */
+    /*              (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
+    /*              NULL); */
+
+    /* renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8, 0.2}, */
+    /*            50); */
 
     windowEndFrame();
   }

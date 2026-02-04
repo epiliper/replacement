@@ -1,9 +1,13 @@
 BIN := REPLACEMENT
-PKG_CONF := $(shell pkg-config --libs --cflags glfw3 cglm freetype2) -lm
+PKG_CONF := $(shell pkg-config --libs --cflags glfw3 cglm freetype2 assimp) -lm
 INCLUDES := -I includes
 S := src
-MEMDBG := -fsanitize=address
+MEMDBG := -fsanitize=address -g
 
 debug: $S/main.c $S/glad.c $S/utils.c $S/log.c $S/mesh.c
-	gcc $(PKG_CONF) $(INCLUDES) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c -o $(BIN);
+	gcc $(PKG_CONF) $(INCLUDES) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c -o $(BIN) $(MEMDBG);
+	./$(BIN)
+
+release: $S/main.c $S/glad.c $S/utils.c $S/log.c $S/mesh.c
+	gcc $(PKG_CONF) $(INCLUDES) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c -o $(BIN) -o2;
 	./$(BIN)
