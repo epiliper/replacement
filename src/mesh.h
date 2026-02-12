@@ -43,7 +43,7 @@ extern const char* modelVert;
 extern const char* modelFrag;
 
 void modelLoaderInit();
-void modelDraw(Model *m);
 Result modelLoadFromFile(Model *model, char *path);
+void modelRender(Model *m, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods);
 
 #endif

@@ -39,6 +39,6 @@ void glog(int level, int line, const char* file, const char* fmt, ...);
 
 GLenum glCheckError_(int line, const char* file);
 
-#define checkGlError() glCheckError_(__LINE__, __FILE__)
-#define GL glCheckError_(__LINE__, __FILE__);
+#define checkGlError() glCheckError_(__LINE__ - 1, __FILE__)
+#define GL glCheckError_(__LINE__ - 1, __FILE__);
 #endif

@@ -63,7 +63,6 @@ enum {
 };
 
 // default keybindings
-//
 
 typedef struct {
   int callback;
@@ -366,8 +365,8 @@ RenderInfo renderSquareInit() {
 
 void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
                     RenderMatrices rm, RenderMods* mods) {
-  glBindVertexArray(ri.vao);
-  glUseProgram(ri.shader);
+  GL glBindVertexArray(ri.vao);
+  GL glUseProgram(ri.shader);
   mat4 model;
   glm_mat4_identity(model);
   glm_translate(model, body->pos);
@@ -383,8 +382,7 @@ void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
 
   shaderSetVec4(ri.shader, "color", self->color);
 
-  glDrawArrays(GL_TRIANGLES, 0, 3);
-  checkGlError();
+  GL glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
 void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
@@ -744,6 +742,7 @@ int main(void) {
   pCamOnResolutionChange(WINDOW.resx, WINDOW.resy);
 
   glEnable(GL_BLEND);
+  glEnable(GL_DEPTH_TEST);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   textInit();
@@ -764,8 +763,6 @@ int main(void) {
   		return 1;
   		};
 
-	glUseProgram(modelShader);
-
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
@@ -773,18 +770,11 @@ int main(void) {
 
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
-		mat4 model;
-		glm_mat4_identity(model);
+		modelRender(&backpack, &tbody, (RenderInfo){.vao = 0, .shader = modelShader}, (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
 
-		shaderSetMat4(modelShader, "projection", pCam.proj);
-		shaderSetMat4(modelShader, "view", pCam.view);
-		shaderSetMat4(modelShader, "model", model);
-
-		modelDraw(&backpack);
-
-    /* renderTriangle(&t, &tbody, ri, */
-    /*                (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
-    /*                NULL); */
+    renderTriangle(&t, &tbody, ri,
+                   (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
+                   NULL);
 
     /* renderSquare(&s, &sbody, sri, */
     /*              (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */

@@ -4,13 +4,13 @@
 #include "utils.h"
 #include <stddef.h>
 #include "mesh.h"
+#include "utils.h"
 
 #include "stdio.h"
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/cimport.h>
-
 
 static int modelLoaderInitialized = 0;
 
@@ -113,13 +113,13 @@ void meshSetup(Mesh* dest) {
                         (void*)offsetof(MeshVertex, texcoords));
 }
 
-void meshDraw(Mesh* m) {
+void meshDraw(Mesh* m, int shader) {
   unsigned int diffuseNr = 1;
   unsigned int specularNr = 1;
   char uniform[256];
 
   for (unsigned int i = 0; i < m->textures.n; i++) {
-    glActiveTexture(GL_TEXTURE0 + i);
+    GL glActiveTexture(GL_TEXTURE0 + i);
 
     switch (m->textures.a[i].type) {
       case (T_DIFFUSE):
@@ -137,24 +137,37 @@ void meshDraw(Mesh* m) {
       	continue;
     }
 
-    shaderSetInt(m->ri.shader, uniform, (int)i);
-    glBindTexture(GL_TEXTURE_2D, m->textures.a[i].id);
+    shaderSetInt(shader, uniform, (int)i);
+    GL glBindTexture(GL_TEXTURE_2D, m->textures.a[i].id);
   }
 
-  glActiveTexture(GL_TEXTURE0);
+  GL glActiveTexture(GL_TEXTURE0);
 
-  glBindVertexArray(m->ri.vao);
-  glDrawElements(GL_TRIANGLES, m->indices.n, GL_UNSIGNED_INT, 0);
-  glBindVertexArray(0);
+  GL glBindVertexArray(m->ri.vao);
+  GL glDrawElements(GL_TRIANGLES, m->indices.n, GL_UNSIGNED_INT, 0);
+  GL glBindVertexArray(0);
 }
+
+
+void modelRender(Model *m, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods) {
+	GL glUseProgram(ri.shader);
+
+	mat4 model;
+	glm_mat4_identity(model);
+	glm_translate(model, body->pos);
+
+	shaderSetMat4(ri.shader, "projection", *rm.proj);
+	shaderSetMat4(ri.shader, "view", *rm.view);
+	shaderSetMat4(ri.shader, "model", model);
+
+	for (unsigned int i = 0; i < m->meshes.n; i++) {
+		meshDraw(&m->meshes.a[i], ri.shader);
+	}
+}
+
 
 char workbuf[1024];
 
-void modelDraw(Model *m) {
-	for (unsigned int i = 0; i < m->meshes.n; i++) {
-		meshDraw(&m->meshes.a[i]);
-	}
-} 
 
 unsigned int textureFromFile(const char* file, const char* directory,
                              bool gamma) {
@@ -282,6 +295,8 @@ void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
   /// Height
   loadMaterialTextures(material, aiTextureType_AMBIENT, T_AMBIENT,
   		directory, &dest->textures);
+
+  meshSetup(dest);
 }
 
 static int node_count = 0;
