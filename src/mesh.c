@@ -15,57 +15,57 @@
 static int modelLoaderInitialized = 0;
 
 struct TextureCache {
-	kvec_t(char*) loaded;
+  kvec_t(char*) loaded;
 };
 
 struct TextureCache TEXTURE_CACHE;
 
-
-void textureCacheAdd(char *t)
-{
-	char *str = strdup(t);
-	kv_push(char*, TEXTURE_CACHE.loaded, t);
+void textureCacheAdd(char* t) {
+  char* str = strdup(t);
+  kv_push(char*, TEXTURE_CACHE.loaded, str);
 }
 
-int textureCacheContains(char *t) {
-	for (int i = 0; i < TEXTURE_CACHE.loaded.n; i++) {
-		if (!strcmp(t, TEXTURE_CACHE.loaded.a[i])) {
-			return 1;
-		}
-	}
+int textureCacheContains(char* t) {
+  for (int i = 0; i < TEXTURE_CACHE.loaded.n; i++) {
+    if (!strcmp(t, TEXTURE_CACHE.loaded.a[i])) {
+      return 1;
+    }
+  }
 
-	return 0;
+  return 0;
 }
 
 void modelLoaderInit() {
-	if (modelLoaderInitialized) {
-		return;
-	}
+  if (modelLoaderInitialized) {
+    return;
+  }
 
-	kv_init(TEXTURE_CACHE.loaded);
-	modelLoaderInitialized = 1;
+  kv_init(TEXTURE_CACHE.loaded);
+  modelLoaderInitialized = 1;
 }
 
-const char *modelVert = "#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"layout(location = 1) in vec3 aNormal;\n"
-"layout(location = 2) in vec2 aTexCoords;\n"
-"out vec2 TexCoords;\n"
-"uniform mat4 projection;\n"
-"uniform mat4 view;\n"
-"uniform mat4 model;\n"
-"void main() {\n"
-"TexCoords = aTexCoords;\n"
-"gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-"}\n";
+const char* modelVert =
+    "#version 330 core\n"
+    "layout(location = 0) in vec3 aPos;\n"
+    "layout(location = 1) in vec3 aNormal;\n"
+    "layout(location = 2) in vec2 aTexCoords;\n"
+    "out vec2 TexCoords;\n"
+    "uniform mat4 projection;\n"
+    "uniform mat4 view;\n"
+    "uniform mat4 model;\n"
+    "void main() {\n"
+    "TexCoords = aTexCoords;\n"
+    "gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+    "}\n";
 
-const char *modelFrag = "#version 330 core\n"
-"out vec4 fragColor;\n"
-"in vec2 TexCoords;\n"
-"uniform sampler2D texture_diffuse1;\n"
-"void main() {\n"
-"fragColor = texture(texture_diffuse1, TexCoords);\n"
-"}";
+const char* modelFrag =
+    "#version 330 core\n"
+    "out vec4 fragColor;\n"
+    "in vec2 TexCoords;\n"
+    "uniform sampler2D texture_diffuse1;\n"
+    "void main() {\n"
+    "fragColor = texture(texture_diffuse1, TexCoords);\n"
+    "}";
 
 enum TEXTURE_TYPE {
   T_SPECULAR,
@@ -77,13 +77,9 @@ enum TEXTURE_TYPE {
 };
 
 const char* textureNames[T_TYPES] = {
-    "texture_specular",
-    "texture_diffuse",
-    "texture_normal",
-    "texture_height",
-    "texture_other",
+    "texture_specular", "texture_diffuse", "texture_normal",
+    "texture_height",   "texture_other",
 };
-
 
 void meshSetup(Mesh* dest) {
   unsigned int vbo, ebo;
@@ -128,13 +124,13 @@ void meshDraw(Mesh* m, int shader) {
         diffuseNr++;
         break;
       case (T_SPECULAR):
-        uniform[snprintf(uniform, 256, "%s%d",
-                         textureNames[T_SPECULAR], specularNr)] = '\0';
+        uniform[snprintf(uniform, 256, "%s%d", textureNames[T_SPECULAR],
+                         specularNr)] = '\0';
         specularNr++;
         break;
 
       default:
-      	continue;
+        continue;
     }
 
     shaderSetInt(shader, uniform, (int)i);
@@ -148,26 +144,24 @@ void meshDraw(Mesh* m, int shader) {
   GL glBindVertexArray(0);
 }
 
+void modelRender(Model* m, Body* body, RenderInfo ri, RenderMatrices rm,
+                 RenderMods* mods) {
+  GL glUseProgram(ri.shader);
 
-void modelRender(Model *m, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods) {
-	GL glUseProgram(ri.shader);
+  mat4 model;
+  glm_mat4_identity(model);
+  glm_translate(model, body->pos);
 
-	mat4 model;
-	glm_mat4_identity(model);
-	glm_translate(model, body->pos);
+  shaderSetMat4(ri.shader, "projection", *rm.proj);
+  shaderSetMat4(ri.shader, "view", *rm.view);
+  shaderSetMat4(ri.shader, "model", model);
 
-	shaderSetMat4(ri.shader, "projection", *rm.proj);
-	shaderSetMat4(ri.shader, "view", *rm.view);
-	shaderSetMat4(ri.shader, "model", model);
-
-	for (unsigned int i = 0; i < m->meshes.n; i++) {
-		meshDraw(&m->meshes.a[i], ri.shader);
-	}
+  for (unsigned int i = 0; i < m->meshes.n; i++) {
+    meshDraw(&m->meshes.a[i], ri.shader);
+  }
 }
 
-
 char workbuf[1024];
-
 
 unsigned int textureFromFile(const char* file, const char* directory,
                              bool gamma) {
@@ -219,8 +213,7 @@ void loadMaterialTextures(struct aiMaterial* mat, enum aiTextureType type,
     aiGetMaterialTexture(mat, type, i, &str, NULL, NULL, NULL, NULL, NULL,
                          NULL);
 
-    if (textureCacheContains(str.data))
-    	continue;
+    if (textureCacheContains(str.data)) continue;
 
     log_debug("Loading texture %s", str.data);
     MeshTexture* dest = (kv_pushp(MeshTexture, (*textures)));
@@ -232,7 +225,7 @@ void loadMaterialTextures(struct aiMaterial* mat, enum aiTextureType type,
 }
 
 void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
-                       const char *directory, Mesh* dest) {
+                       const char* directory, Mesh* dest) {
   vec3 vector;
   MeshVertex vert;
   for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
@@ -282,34 +275,36 @@ void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
   struct aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
   /// Diffuse
-  loadMaterialTextures(material, aiTextureType_DIFFUSE, T_DIFFUSE,
-                       directory, &dest->textures);
+  loadMaterialTextures(material, aiTextureType_DIFFUSE, T_DIFFUSE, directory,
+                       &dest->textures);
   /// Specular
-  loadMaterialTextures(material, aiTextureType_SPECULAR, T_SPECULAR,
-  		directory, &dest->textures);
+  loadMaterialTextures(material, aiTextureType_SPECULAR, T_SPECULAR, directory,
+                       &dest->textures);
 
   /// Normal
-  loadMaterialTextures(material, aiTextureType_HEIGHT, T_NORMAL,
-  		directory, &dest->textures);
+  loadMaterialTextures(material, aiTextureType_HEIGHT, T_NORMAL, directory,
+                       &dest->textures);
 
   /// Height
-  loadMaterialTextures(material, aiTextureType_AMBIENT, T_AMBIENT,
-  		directory, &dest->textures);
+  loadMaterialTextures(material, aiTextureType_AMBIENT, T_AMBIENT, directory,
+                       &dest->textures);
 
   meshSetup(dest);
 }
 
 static int node_count = 0;
-static int mesh_count = 0;;
+static int mesh_count = 0;
+;
 
 void processAssimpNode(Model* model, struct aiNode* node,
                        const struct aiScene* scene) {
   node_count++;
-	if (node_count % 100 == 0) {
+  if (node_count % 100 == 0) {
     log_debug("Processed %d nodes, %d meshes so far", node_count, mesh_count);
   }
 
-  log_debug("Processing node %s with %d meshes", node->mName.data, node->mNumMeshes);
+  log_debug("Processing node %s with %d meshes", node->mName.data,
+            node->mNumMeshes);
 
   for (unsigned int i = 0; i < node->mNumMeshes; i++) {
     struct aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
@@ -324,19 +319,20 @@ void processAssimpNode(Model* model, struct aiNode* node,
   }
 
   for (unsigned int i = 0; i < node->mNumChildren; i++) {
-  	log_debug("Processing child %d: %s", i, node->mChildren[i]->mName);
+    log_debug("Processing child %d: %s", i, node->mChildren[i]->mName);
     processAssimpNode(model, node->mChildren[i], scene);
   }
 }
 
 Result modelLoadFromFile(Model* model, char* path) {
-	if (!modelLoaderInitialized) {
-		log_error("Attempted to load model when modelLoader not initialized!");
-		return Err;
-	}
-	kv_init(model->meshes);
-  const struct aiScene* scene =
-      aiImportFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
+  if (!modelLoaderInitialized) {
+    log_error("Attempted to load model when modelLoader not initialized!");
+    return Err;
+  }
+  kv_init(model->meshes);
+  const struct aiScene* scene = aiImportFile(
+      path, aiProcess_Triangulate | aiProcess_FlipUVs |
+                aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
       !scene->mRootNode) {
