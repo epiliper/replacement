@@ -149,46 +149,46 @@ void shaderSetVec4(unsigned int shader, const char* uni, vec4 dat) {
 
 void shaderSetMat4(unsigned int shader, const char* uni, mat4 dat) {
   GLint loc = glGetUniformLocation(shader, uni);
-  if (loc == -1) {
-    printf("Failed to find uniform %s\n", uni);
-  }
+  /* if (loc == -1) { */
+  /*   printf("Failed to find uniform %s\n", uni); */
+  /* } */
   /* glUseProgram(shader); */
   glUniformMatrix4fv(loc, 1, GL_FALSE, (float*)dat);
 }
 
 void shaderSetVec3(unsigned int shader, const char* uni, vec3 dat) {
   GLint loc = glGetUniformLocation(shader, uni);
-  if (loc == -1) {
-    printf("Failed to find uniform %s\n", uni);
-  }
+  /* if (loc == -1) { */
+  /*   printf("Failed to find uniform %s\n", uni); */
+  /* } */
   /* glUseProgram(shader); */
   glUniform3fv(loc, 1, dat);
 }
 
 void shaderSetFloat(unsigned int shader, const char* uni, float dat) {
   GLint loc = glGetUniformLocation(shader, uni);
-  if (loc == -1) {
-    printf("Failed to find uniform %s\n", uni);
-  }
+  /* if (loc == -1) { */
+  /*   printf("Failed to find uniform %s\n", uni); */
+  /* } */
   /* glUseProgram(shader); */
-  /* glUniform1f(loc, dat); */
+  glUniform1f(loc, dat);
 }
 
 void shaderSetUnsignedInt(unsigned int shader, const char* uni,
                           unsigned int dat) {
   GLint loc = glGetUniformLocation(shader, uni);
-  if (loc == -1) {
-    printf("Failed to find uniform %s\n", uni);
-  }
+  /* if (loc == -1) { */
+  /*   printf("Failed to find uniform %s\n", uni); */
+  /* } */
   /* glUseProgram(shader); */
   glUniform1ui(loc, dat);
 }
 
 void shaderSetInt(unsigned int shader, const char* uni, int dat) {
   GLint loc = glGetUniformLocation(shader, uni);
-  if (loc == -1) {
-    printf("Failed to find uniform %s\n", uni);
-  }
+  /* if (loc == -1) { */
+  /*   printf("Failed to find uniform %s\n", uni); */
+  /* } */
   /* glUseProgram(shader); */
   glUniform1i(loc, dat);
 }

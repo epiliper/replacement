@@ -725,6 +725,34 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
 }
 
 /*
+ * ==============
+ * @EDITOR SCREEN
+ * ==============
+ *
+ * I want to display a grid of squares representing discrete world coordinates around the view of the player's camera.
+ *
+ */
+
+#define GRID_MARGIN 10
+
+void renderEditGrid(SquareThing *s, RenderInfo ri, vec3 pos, int step_size, RenderMatrices rm) {
+
+	Body b = {.rot = {90, 0, 0}, .height = 0.1, .width = 0.1, .pos = {0, 0, 0}};
+
+	int xstart = pos[0] - GRID_MARGIN, xend = pos[0] + GRID_MARGIN;
+	int zstart = pos[2] - GRID_MARGIN, zend = pos[2] + GRID_MARGIN;
+
+	// TODO: make instanced
+	for (int i = xstart; i < xend; i += step_size) {
+		for (int j = zstart; j < zend; j += step_size) {
+			b.pos[0] = i - 0.5;
+			b.pos[2] = j - 0.5;
+			renderSquare(s, &b, ri, rm, NULL);
+		}
+	}
+}
+
+/*
  * =====
  * @MAIN
  * =====
@@ -752,7 +780,7 @@ int main(void) {
   RenderInfo sri = renderSquareInit();
 
   TriangleThing t = {.color = {0, 0, 1, 1}};
-  SquareThing s = {.color = {0, 0, 1, 1}};
+  SquareThing s = {.color = {0, 0, 1, 0.2}};
   Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
   Body sbody = {.pos = {0, -1, -5}, .height = 2, .width = 2, .rot = {90, 0, 0}};
 
@@ -772,9 +800,11 @@ int main(void) {
 
 		modelRender(&backpack, &tbody, (RenderInfo){.vao = 0, .shader = modelShader}, (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
 
-    renderTriangle(&t, &tbody, ri,
-                   (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
-                   NULL);
+		renderEditGrid(&s, sri, pCam.pos, 1, (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view});
+
+    /* renderTriangle(&t, &tbody, ri, */
+    /*                (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
+    /*                NULL); */
 
     /* renderSquare(&s, &sbody, sri, */
     /*              (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
