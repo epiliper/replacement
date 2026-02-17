@@ -55,6 +55,3 @@ GLenum glCheckError_(int line, const char* file) {
   }
   return errorCode;
 }
-
-#define checkGlError() glCheckError_(__LINE__, __FILE__)
-#define GL glCheckError_(__LINE__, __FILE__);

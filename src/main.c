@@ -53,6 +53,8 @@ enum {
   KMOVE_BACK,
   KJUMP,
 
+  K_EDIT,
+
   KPAUSE,
 
   K_SHOOT,
@@ -85,6 +87,8 @@ Keybinding Keybinds[K_BINDS] = {
     KEYBIND(GLFW_KEY_S, NO_CALLBACK),      // back
     KEYBIND(GLFW_KEY_SPACE, NO_CALLBACK),  // jump
 
+    KEYBIND(GLFW_KEY_E, CALLBACK_TOGGLE),  // editor toggle
+
     KEYBIND(GLFW_KEY_ESCAPE, CALLBACK_TOGGLE),  // pause
 
     KEYBIND(GLFW_MOUSE_BUTTON_LEFT, CALLBACK_TOGGLE),   // shoot
@@ -93,6 +97,7 @@ Keybinding Keybinds[K_BINDS] = {
 };
 
 #define PRESSED(int) Keybinds[int].pressed
+#define RELEASE(int) Keybinds[int].pressed = 0
 
 // Check for key presses and respect callbacks.
 // TODO: we check every single entry on a keypress. Create a mapping between key
@@ -418,6 +423,11 @@ struct CubeThing {
  * =======
  */
 
+enum CameraMode {
+  CAM_TOPDOWN,
+  CAM_FPS,
+};
+
 typedef struct PerspectiveCamera {
   float pitch, yaw;
   bool firstInt;
@@ -426,9 +436,12 @@ typedef struct PerspectiveCamera {
   mat4 proj, view, ortho;
   float fov;
   float sensitivity;
+  int mode;
 } PerspectiveCamera;
 
 static PerspectiveCamera pCam;
+static float last_pitch;
+static vec3 last_pos;
 
 #define pCamInit           \
   {.pitch = 0,             \
@@ -445,7 +458,25 @@ static PerspectiveCamera pCam;
    .view = {0},            \
    .ortho = {0},           \
    .fov = 45,              \
+   .mode = CAM_FPS,        \
    .sensitivity = 0.1}
+
+void pCamToggleMode(int width, int height) {
+  if (pCam.mode == CAM_FPS) {
+    pCam.mode = CAM_TOPDOWN;
+
+    last_pitch = pCam.pitch;
+    pCam.pitch = -89.0f;
+
+    glm_vec3_copy(pCam.pos, last_pos);
+    pCam.pos[1] = 10;
+
+  } else {
+    pCam.mode = CAM_FPS;
+    glm_vec3_copy(last_pos, pCam.pos);
+    pCam.pitch = last_pitch;
+  };
+}
 
 void pCamUpdateView(int width, int height) {
   pCam.front[0] = cos(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
@@ -555,6 +586,11 @@ void updatePlayer() {
   }
   if (PRESSED(KMOVE_BACK)) {
     pCamMove(CMOVE_BACK);
+  }
+
+  if (PRESSED(K_EDIT)) {
+    pCamToggleMode(WINDOW.resx, WINDOW.resy);
+    RELEASE(K_EDIT);
   }
 }
 
@@ -729,27 +765,28 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
  * @EDITOR SCREEN
  * ==============
  *
- * I want to display a grid of squares representing discrete world coordinates around the view of the player's camera.
+ * I want to display a grid of squares representing discrete world coordinates
+ * around the view of the player's camera.
  *
  */
 
 #define GRID_MARGIN 10
 
-void renderEditGrid(SquareThing *s, RenderInfo ri, vec3 pos, int step_size, RenderMatrices rm) {
+void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
+                    RenderMatrices rm) {
+  Body b = {.rot = {90, 0, 0}, .height = 0.1, .width = 0.1, .pos = {0, 0, 0}};
 
-	Body b = {.rot = {90, 0, 0}, .height = 0.1, .width = 0.1, .pos = {0, 0, 0}};
+  int xstart = pos[0] - GRID_MARGIN, xend = pos[0] + GRID_MARGIN;
+  int zstart = pos[2] - GRID_MARGIN, zend = pos[2] + GRID_MARGIN;
 
-	int xstart = pos[0] - GRID_MARGIN, xend = pos[0] + GRID_MARGIN;
-	int zstart = pos[2] - GRID_MARGIN, zend = pos[2] + GRID_MARGIN;
-
-	// TODO: make instanced
-	for (int i = xstart; i < xend; i += step_size) {
-		for (int j = zstart; j < zend; j += step_size) {
-			b.pos[0] = i - 0.5;
-			b.pos[2] = j - 0.5;
-			renderSquare(s, &b, ri, rm, NULL);
-		}
-	}
+  // TODO: make instanced
+  for (int i = xstart; i < xend; i += step_size) {
+    for (int j = zstart; j < zend; j += step_size) {
+      b.pos[0] = i - 0.5;
+      b.pos[2] = j - 0.5;
+      renderSquare(s, &b, ri, rm, NULL);
+    }
+  }
 }
 
 /*
@@ -788,8 +825,8 @@ int main(void) {
   Model backpack = {0};
 
   if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj"))) {
-  		return 1;
-  		};
+    return 1;
+  };
 
   while (!windowShouldClose()) {
     windowNewFrame();
@@ -798,19 +835,26 @@ int main(void) {
 
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
-		modelRender(&backpack, &tbody, (RenderInfo){.vao = 0, .shader = modelShader}, (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
+    modelRender(&backpack, &tbody,
+                (RenderInfo){.vao = 0, .shader = modelShader},
+                (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
 
-		renderEditGrid(&s, sri, pCam.pos, 1, (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view});
+    renderEditGrid(&s, sri, pCam.pos, 1,
+                   (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view});
 
     /* renderTriangle(&t, &tbody, ri, */
-    /*                (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
+    /*                (RenderMatrices){.view = &pCam.view, .proj =
+     * &pCam.proj},
+     */
     /*                NULL); */
 
     /* renderSquare(&s, &sbody, sri, */
-    /*              (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj}, */
+    /*              (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
+     */
     /*              NULL); */
 
-    /* renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8, 0.2}, */
+    /* renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8,
+     * 0.2}, */
     /*            50); */
 
     windowEndFrame();

@@ -303,9 +303,6 @@ void processAssimpNode(Model* model, struct aiNode* node,
     log_debug("Processed %d nodes, %d meshes so far", node_count, mesh_count);
   }
 
-  log_debug("Processing node %s with %d meshes", node->mName.data,
-            node->mNumMeshes);
-
   for (unsigned int i = 0; i < node->mNumMeshes; i++) {
     struct aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
     mesh_count++;
@@ -319,7 +316,6 @@ void processAssimpNode(Model* model, struct aiNode* node,
   }
 
   for (unsigned int i = 0; i < node->mNumChildren; i++) {
-    log_debug("Processing child %d: %s", i, node->mChildren[i]->mName);
     processAssimpNode(model, node->mChildren[i], scene);
   }
 }
