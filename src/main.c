@@ -47,11 +47,11 @@ void mouseInit(void* window) {
 }
 
 enum {
-  KMOVE_FORW,
-  KMOVE_LEFT,
-  KMOVE_RIGHT,
-  KMOVE_BACK,
-  KJUMP,
+  K_MOVE_FORW,
+  K_MOVE_LEFT,
+  K_MOVE_RIGHT,
+  K_MOVE_BACK,
+  K_JUMP,
 
   K_EDIT,
 
@@ -62,6 +62,14 @@ enum {
   K_RELOAD,
 
   K_BINDS,  // number of binds
+};
+
+enum {
+	K_MOUSE_LEFT,
+	K_MOUSE_MIDDLE,
+	K_MOUSE_RIGHT,
+
+	K_MOUSE_BINDS,
 };
 
 // default keybindings
@@ -80,7 +88,14 @@ enum {
   CALLBACK_TOGGLE,
 };
 
+Keybinding Mousebinds[K_MOUSE_BINDS] = {
+	KEYBIND(GLFW_MOUSE_BUTTON_1, NO_CALLBACK),
+	KEYBIND(GLFW_MOUSE_BUTTON_3, NO_CALLBACK),
+	KEYBIND(GLFW_MOUSE_BUTTON_2, NO_CALLBACK),
+};
+
 Keybinding Keybinds[K_BINDS] = {
+	
     KEYBIND(GLFW_KEY_W, NO_CALLBACK),      // forward
     KEYBIND(GLFW_KEY_A, NO_CALLBACK),      // left
     KEYBIND(GLFW_KEY_D, NO_CALLBACK),      // right
@@ -96,8 +111,11 @@ Keybinding Keybinds[K_BINDS] = {
     KEYBIND(GLFW_KEY_R, CALLBACK_TOGGLE),               // reload
 };
 
-#define PRESSED(int) Keybinds[int].pressed
-#define RELEASE(int) Keybinds[int].pressed = 0
+#define KPRESSED(int) Keybinds[int].pressed
+#define KRELEASE(int) Keybinds[int].pressed = 0
+
+#define MPRESSED(int) Mousebinds[int].pressed
+#define MRELEASE(int) Mousebinds[int].pressed = 0
 
 // Check for key presses and respect callbacks.
 // TODO: we check every single entry on a keypress. Create a mapping between key
@@ -123,10 +141,30 @@ void keybindingsPoll(void* window, int key, int scancode, int action,
   }
 }
 
+void mousebindingsPoll(void *window, int key, int action, int mods) {
+	int k, c;
+	for (int i = 0; i < K_MOUSE_BINDS; i++) {
+		k = Mousebinds[i].key;
+		c = Mousebinds[i].callback;
+
+		if (key == k) {
+			switch (c) {
+				case NO_CALLBACK:
+					Mousebinds[i].pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
+					break;
+				case CALLBACK_TOGGLE:
+					Mousebinds[i].pressed = (action == GLFW_PRESS);
+					break;
+			}
+			break;
+		}
+	}
+}
+
 // Attach keybindings to window.
 void keybindingsInit(void* window) {
   glfwSetKeyCallback(window, (GLFWkeyfun)keybindingsPoll);
-  glfwSetMouseButtonCallback(window, (GLFWmousebuttonfun)(keybindingsPoll));
+  glfwSetMouseButtonCallback(window, (GLFWmousebuttonfun)(mousebindingsPoll));
 }
 
 /*
@@ -570,27 +608,104 @@ void pCamMove(int direction) {
 }
 
 /*
+ * =========
+ * @PICKING
+ * =========
+ *
+ */
+
+typedef struct Ray {
+	vec3 start;
+	vec3 end;
+};
+
+void getNormalizedDeviceCoordinates(int resX, int resY, float mouseX,
+                                    float mouseY, vec2 dest) {
+  float newx = (2.0f * mouseX) / (float)resX - 1.0f;
+  float newy = 1.0f - 2.0f * (mouseY / (float)resY);
+  dest[0] = newx;
+  dest[1] = newy;
+};
+
+void clipCoordsToEyeSpace(vec4 clip_coords, mat4 projection, vec4 dest) {
+  mat4 inv;
+  glm_mat4_inv(projection, inv);
+
+  vec4 eyecoords;
+  glm_mat4_mulv(inv, clip_coords, eyecoords);
+  dest[0] = eyecoords[0];
+  dest[1] = eyecoords[1];
+  dest[2] = -1.0f;
+  dest[3] = 0.0f;
+
+  // vec_print("Eye coordinates", dest);
+}
+
+/// Reverse the eye coordinates to world space
+void eyeCoordsToWorldSpace(vec4 eye_coords, mat4 view,
+                           vec3 posdest) {
+  mat4 inv;
+  glm_mat4_inv(view, inv);
+
+  vec4 world_coords;
+  glm_mat4_mulv(inv, eye_coords, world_coords);
+
+  glm_vec3_copy(world_coords, posdest);
+
+  // vec_print("World coords", dest);
+}
+
+void calculateRayDirection(int width, int height, float x, float y,
+                           mat4 projection, mat4 view, vec3 posdest) {
+  // normalized device coordinates
+  vec2 normalized;
+  getNormalizedDeviceCoordinates(width, height, x, y, normalized);
+
+  // clip space
+  vec4 clip_space = {normalized[0], normalized[1], -1.0f, 1.0f};
+
+  // eye coordinates
+  vec4 eye_coords;
+  clipCoordsToEyeSpace(clip_space, projection, eye_coords);
+
+  // world coordinates: A direction into world space.
+  eyeCoordsToWorldSpace(eye_coords, view, posdest);
+}
+
+#define GET_MOUSE_WORLD_POS(dest) \
+	calculateRayDirection(WINDOW.resx, WINDOW.resy, MOUSE.xpos, MOUSE.ypos, pCam.proj, pCam.view, dest)
+
+
+/*
  * =======
  * @PLAYER
  * =======
  */
 void updatePlayer() {
-  if (PRESSED(KMOVE_FORW)) {
+  if (KPRESSED(K_MOVE_FORW)) {
     pCamMove(CMOVE_FORW);
   }
-  if (PRESSED(KMOVE_LEFT)) {
+  if (KPRESSED(K_MOVE_LEFT)) {
     pCamMove(CMOVE_LEFT);
   }
-  if (PRESSED(KMOVE_RIGHT)) {
+  if (KPRESSED(K_MOVE_RIGHT)) {
     pCamMove(CMOVE_RIGHT);
   }
-  if (PRESSED(KMOVE_BACK)) {
+  if (KPRESSED(K_MOVE_BACK)) {
     pCamMove(CMOVE_BACK);
   }
 
-  if (PRESSED(K_EDIT)) {
+  if (KPRESSED(K_EDIT)) {
     pCamToggleMode(WINDOW.resx, WINDOW.resy);
-    RELEASE(K_EDIT);
+    KRELEASE(K_EDIT);
+  }
+  
+  if (MPRESSED(K_MOUSE_LEFT)) {
+  	printf("Pressed left mouse");
+  	vec3 dest;
+  	GET_MOUSE_WORLD_POS(dest);
+  	glm_vec3_print(dest, stderr);
+  	MRELEASE(K_MOUSE_LEFT);
   }
 }
 
@@ -787,6 +902,24 @@ void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
       renderSquare(s, &b, ri, rm, NULL);
     }
   }
+}
+
+static int pickedvert = -1;
+static int pickedsector = -1;
+
+struct Vertex {
+	float x, y;
+};
+
+typedef kvec_t(struct Vertex) VertexVec;
+
+struct Sector {
+	VertexVec v;
+};
+
+
+void handleEditorClick() {
+	// CHECK INTERSECTION HERE.
 }
 
 /*
