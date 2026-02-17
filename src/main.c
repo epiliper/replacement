@@ -7,6 +7,7 @@
 #include "GLFW/glfw3.h"
 #include "cglm/cglm.h"
 #include "kvec.h"
+#include "khash.h"
 #include "thing.h"
 #include "utils.h"
 #include "log.h"
@@ -291,19 +292,6 @@ void thingLoadFromData(void* data, int type, Body loc, Thing* dest) {
   dest->loc = loc;
   dest->render = render;
 }
-
-/*
- * =========
- * @RENDERER
- * =========
- */
-
-typedef kvec_t(Thing) ThingArray;
-
-typedef struct {
-  ThingArray things;
-} Renderer;
-
 /*
  * ===========
  * @PRIMITIVES
@@ -904,22 +892,36 @@ void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
   }
 }
 
-static int pickedvert = -1;
-static int pickedsector = -1;
+/*
+ * =========
+ * @RENDERER
+ * =========
+ *
+ */
 
-struct Vertex {
-	float x, y;
-};
+// struct mapRenderInfo
+KHASH_MAP_INIT_INT(mapRenderInfo, RenderInfo);
 
-typedef kvec_t(struct Vertex) VertexVec;
+// struct mapThing:
+KHASH_MAP_INIT_INT(mapThing, Thing);
 
-struct Sector {
-	VertexVec v;
-};
+// The rendered
+typedef struct Renderer {
+	mapRenderInfo renderinfos;	// map render info to int id
+	mapThing things;						// map things to int id
+	int curid;                  // state used to generate IDs for new things
+} Renderer;
 
+Result rendererDeleteThing(int id) {
+	return Ok;
+}
 
-void handleEditorClick() {
-	// CHECK INTERSECTION HERE.
+Result rendererAddThing(Thing *t) {
+	return Ok;
+}
+
+Result rendererRender() {
+	return Ok;
 }
 
 /*
