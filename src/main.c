@@ -277,23 +277,6 @@ int windowShouldClose() { return glfwWindowShouldClose(WINDOW.window); }
 void windowTerminate() { glfwTerminate(); }
 
 /*
- * ========
- * @Things + Generics
- * ========
- */
-
-// TODO: in here check if renderinfo has already been initialized.
-void thingLoadFromData(void* data, int type, Body loc, Thing* dest) {
-  Renderable render;
-
-  // SWTICH STATEMENT FOR TYPE FUNCs
-  //
-
-  dest->type = type;
-  dest->loc = loc;
-  dest->render = render;
-}
-/*
  * ===========
  * @PRIMITIVES
  * ===========
@@ -369,7 +352,7 @@ RenderInfo renderInitTriangle() {
   return ret;
 }
 
-RenderInfo renderSquareInit() {
+RenderInfo renderInitSquare() {
   RenderInfo ri;
 
   unsigned int vbo, ebo;
@@ -419,8 +402,8 @@ void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
 
 void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
                   RenderMatrices rm, RenderMods* mods) {
-  glUseProgram(ri.shader);
-  glBindVertexArray(ri.vao);
+  GL glUseProgram(ri.shader);
+  GL glBindVertexArray(ri.vao);
 
   mat4 model;
   glm_mat4_identity(model);
@@ -435,14 +418,56 @@ void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
   shaderSetMat4(ri.shader, "view", *rm.view);
   shaderSetMat4(ri.shader, "model", model);
 
+	glm_vec4_print(self->color, stderr);
   shaderSetVec4(ri.shader, "color", self->color);
-  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-  checkGlError();
+  GL glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 };
 
 struct CubeThing {
   vec4 color;
 };
+
+/*
+ * ========
+ * @Things + Generics
+ * ========
+ */
+
+Thing *thingLoadFromData(void* data, int type, Body *loc) {
+  Renderable render;
+  Thing *dest = malloc(sizeof(Thing));
+
+  if (!dest) {
+  	log_error("failed to allocate memory for thing with type: %d", type);
+  	return NULL;
+  }
+
+  switch (type) {
+		case THING_TRIANGLE:
+			render.rfunc = (RenderFunc)renderTriangle;
+			render.rinit = (RenderInitFunc)renderInitTriangle;
+			break;
+		case THING_SQUARE:
+			render.rfunc = (RenderFunc)renderSquare;
+			render.rinit = (RenderInitFunc)renderInitSquare;
+			break;
+		case THING_BACKPACK:
+			// We assume the model has already been loaded.
+			render.rfunc = (RenderFunc)renderModel;
+			render.rinit = (RenderInitFunc)renderInitModel;
+			break;
+		default:
+			log_error("Unknown type id: %d", type);
+			return NULL;
+  }
+
+  dest->type = type;
+  dest->self = data;
+  dest->loc = *loc;
+  dest->render = render;
+
+  return dest;
+}
 
 /*
  * =======
@@ -894,7 +919,6 @@ void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
  *
  */
 
-// struct mapRenderInfo
 KHASH_MAP_INIT_INT(void, void*);
 KHASH_MAP_INIT_INT(ri, RenderInfo);
 
@@ -906,7 +930,7 @@ typedef struct Renderer {
   bool init;
 } Renderer;
 
-static Renderer RENDERER;
+static Renderer RENDERER = {.renderinfos = NULL, .things = NULL, .curid = -1, .init = false};
 
 void rendererInitialize() {
   if (RENDERER.init) {
@@ -921,6 +945,10 @@ void rendererInitialize() {
 };
 
 Result rendererDeleteThing(int id) {
+	if (!RENDERER.init) {
+		log_error("Renderer not initialized!");
+		return Err;
+	}
   khiter_t k;
   k = kh_get_void(RENDERER.things, id);
 
@@ -937,25 +965,37 @@ Result rendererDeleteThing(int id) {
 }
 
 Result rendererAddThing(Thing* t) {
+	if (!RENDERER.init) {
+		log_error("Renderer not initialized!");
+		return Err;
+	}
+
   khiter_t k;
   RenderInfo ri;
   int ret;
 
+  log_debug("Adding thing with type %d", t->type);
+
   // Create renderinfo for this item if we haven't already.
-  if (kh_get_ri(RENDERER.renderinfos, t->type) !=
+  if ((k = kh_get_ri(RENDERER.renderinfos, t->type)) !=
       kh_end(RENDERER.renderinfos)) {
     ri = kh_val(RENDERER.renderinfos, k);
+    log_debug("Already initialized render info for object of type %d: ", t->type);
   } else {
     ri = (t->render.rinit)();
-    kh_put_ri(RENDERER.renderinfos, k, &ret);
-    kh_val(RENDERER.renderinfos, k) = ri;
+    k = kh_put_ri(RENDERER.renderinfos, k, &ret);
+
+    kh_value(RENDERER.renderinfos, k) = ri;
+    t->render.ri = ri;
   }
 
-  // Add it to the list of things to render.
-  do {
-    t->id = RENDERER.curid++;
-  } while (kh_get_void(RENDERER.things, t->id) == kh_end(RENDERER.things));
 
+ // Add it to the list of things to render.
+ do {
+   t->id = RENDERER.curid++;
+ } while ((k = kh_get_void(RENDERER.things, t->id)) != kh_end(RENDERER.things));
+
+	k = kh_put_void(RENDERER.things, k, &ret);
   kh_value(RENDERER.things, k) = t;
 
   return Ok;
@@ -968,11 +1008,11 @@ Result rendererRender() {
   for (khint_t i = kh_begin(RENDERER.things); i != kh_end(RENDERER.things);
        ++i) {
     if (!kh_exist(RENDERER.things, i)) continue;
-    t = kh_val(RENDERER.things, i);
 
+    t = kh_val(RENDERER.things, i);
     // render
-    (t->render.rfunc)(t, &t->loc, t->render.ri,
-                      (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
+    (t->render.rfunc)(t->self, &t->loc, t->render.ri,
+                      (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view}, NULL);
   }
 
   return Ok;
@@ -1001,21 +1041,28 @@ int main(void) {
 
   textInit();
   modelLoaderInit();
-  RenderInfo ri = renderInitTriangle();
-  RenderInfo tri = renderTextInit();
-  RenderInfo sri = renderSquareInit();
 
-  TriangleThing t = {.color = {0, 0, 1, 1}};
+	TriangleThing t = {.color = {0, 0, 1, 1}};
   SquareThing s = {.color = {0, 0, 1, 0.2}};
   Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
   Body sbody = {.pos = {0, -1, -5}, .height = 2, .width = 2, .rot = {90, 0, 0}};
 
-  unsigned int modelShader = shaderFromCharVF(modelVert, modelFrag);
   Model backpack = {0};
 
   if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj"))) {
     return 1;
   };
+
+  rendererInitialize();
+  Thing *triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
+  Thing *triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &sbody);
+  Thing *square = thingLoadFromData(&s, THING_SQUARE, &sbody);
+  Thing *bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
+
+  rendererAddThing(triangle);
+  rendererAddThing(triangle2);
+  rendererAddThing(square);
+  rendererAddThing(bpmodel);
 
   while (!windowShouldClose()) {
     windowNewFrame();
@@ -1024,23 +1071,7 @@ int main(void) {
 
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
-    modelRender(&backpack, &tbody,
-                (RenderInfo){.vao = 0, .shader = modelShader},
-                (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
-
-    renderEditGrid(&s, sri, pCam.pos, 1,
-                   (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view});
-
-    /* renderTriangle(&t, &tbody, ri, */
-    /*                (RenderMatrices){.view = &pCam.view, .proj =
-     * &pCam.proj},
-     */
-    /*                NULL); */
-
-    /* renderSquare(&s, &sbody, sri, */
-    /*              (RenderMatrices){.view = &pCam.view, .proj = &pCam.proj},
-     */
-    /*              NULL); */
+    rendererRender();
 
     /* renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8,
      * 0.2}, */

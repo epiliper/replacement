@@ -144,7 +144,7 @@ void meshDraw(Mesh* m, int shader) {
   GL glBindVertexArray(0);
 }
 
-void modelRender(Model* m, Body* body, RenderInfo ri, RenderMatrices rm,
+void renderModel(Model* m, Body* body, RenderInfo ri, RenderMatrices rm,
                  RenderMods* mods) {
   GL glUseProgram(ri.shader);
 
@@ -294,7 +294,6 @@ void processAssimpMesh(const struct aiMesh* mesh, const struct aiScene* scene,
 
 static int node_count = 0;
 static int mesh_count = 0;
-;
 
 void processAssimpNode(Model* model, struct aiNode* node,
                        const struct aiScene* scene) {
@@ -318,6 +317,11 @@ void processAssimpNode(Model* model, struct aiNode* node,
   for (unsigned int i = 0; i < node->mNumChildren; i++) {
     processAssimpNode(model, node->mChildren[i], scene);
   }
+}
+
+RenderInfo renderInitModel() {
+	unsigned int modelShader = shaderFromCharVF(modelVert, modelFrag);
+	return (RenderInfo){.vao = 0, .shader = modelShader};
 }
 
 Result modelLoadFromFile(Model* model, char* path) {

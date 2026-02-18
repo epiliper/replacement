@@ -14,7 +14,11 @@ typedef struct {
 } RenderMatrices;
 
 // thing types
-enum { THING_TRIANGLE };
+enum { 
+	THING_TRIANGLE,
+	THING_SQUARE,
+	THING_BACKPACK,
+};
 
 // TODO
 typedef struct {

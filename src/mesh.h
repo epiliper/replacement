@@ -44,6 +44,7 @@ extern const char* modelFrag;
 
 void modelLoaderInit();
 Result modelLoadFromFile(Model *model, char *path);
-void modelRender(Model *m, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods);
+void renderModel(Model *m, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods);
+RenderInfo renderInitModel();
 
 #endif
