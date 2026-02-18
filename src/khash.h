@@ -202,21 +202,23 @@ static const double __ac_HASH_UPPER = 0.77;
     khint32_t* flags;                                 \
     khkey_t* keys;                                    \
     khval_t* vals;                                    \
-  } name;
+  } kh_##name##_t;
 
-#define __KHASH_PROTOTYPES(name, khkey_t, khval_t)              \
-  extern name* kh_init_##name(void);                            \
-  extern void kh_destroy_##name(name* h);                       \
-  extern void kh_clear_##name(name* h);                         \
-  extern khint_t kh_get_##name(const name* h, khkey_t key);     \
-  extern int kh_resize_##name(name* h, khint_t new_n_buckets);  \
-  extern khint_t kh_put_##name(name* h, khkey_t key, int* ret); \
-  extern void kh_del_##name(name* h, khint_t x);
+#define __KHASH_PROTOTYPES(name, khkey_t, khval_t)                       \
+  extern kh_##name##_t* kh_init_##name(void);                            \
+  extern void kh_destroy_##name(kh_##name##_t* h);                       \
+  extern void kh_clear_##name(kh_##name##_t* h);                         \
+  extern khint_t kh_get_##name(const kh_##name##_t* h, khkey_t key);     \
+  extern int kh_resize_##name(kh_##name##_t* h, khint_t new_n_buckets);  \
+  extern khint_t kh_put_##name(kh_##name##_t* h, khkey_t key, int* ret); \
+  extern void kh_del_##name(kh_##name##_t* h, khint_t x);
 
 #define __KHASH_IMPL(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func,    \
                      __hash_equal)                                             \
-  SCOPE name* kh_init_##name(void) { return (name*)kcalloc(1, sizeof(name)); } \
-  SCOPE void kh_destroy_##name(name* h) {                                      \
+  SCOPE kh_##name##_t* kh_init_##name(void) {                                  \
+    return (kh_##name##_t*)kcalloc(1, sizeof(kh_##name##_t));                  \
+  }                                                                            \
+  SCOPE void kh_destroy_##name(kh_##name##_t* h) {                             \
     if (h) {                                                                   \
       kfree((void*)h->keys);                                                   \
       kfree(h->flags);                                                         \
@@ -224,13 +226,13 @@ static const double __ac_HASH_UPPER = 0.77;
       kfree(h);                                                                \
     }                                                                          \
   }                                                                            \
-  SCOPE void kh_clear_##name(name* h) {                                        \
+  SCOPE void kh_clear_##name(kh_##name##_t* h) {                               \
     if (h && h->flags) {                                                       \
       memset(h->flags, 0xaa, __ac_fsize(h->n_buckets) * sizeof(khint32_t));    \
       h->size = h->n_occupied = 0;                                             \
     }                                                                          \
   }                                                                            \
-  SCOPE khint_t kh_get_##name(const name* h, khkey_t key) {                    \
+  SCOPE khint_t kh_get_##name(const kh_##name##_t* h, khkey_t key) {           \
     if (h->n_buckets) {                                                        \
       khint_t k, i, last, mask, step = 0;                                      \
       mask = h->n_buckets - 1;                                                 \
@@ -247,7 +249,7 @@ static const double __ac_HASH_UPPER = 0.77;
       return 0;                                                                \
   }                                                                            \
   SCOPE int kh_resize_##name(                                                  \
-      name* h,                                                                 \
+      kh_##name##_t* h,                                                        \
       khint_t new_n_buckets) { /* This function uses 0.25*n_buckets bytes of   \
                                   working space instead of                     \
                                   [sizeof(key_t+val_t)+.25]*n_buckets. */      \
@@ -337,7 +339,7 @@ static const double __ac_HASH_UPPER = 0.77;
     }                                                                          \
     return 0;                                                                  \
   }                                                                            \
-  SCOPE khint_t kh_put_##name(name* h, khkey_t key, int* ret) {                \
+  SCOPE khint_t kh_put_##name(kh_##name##_t* h, khkey_t key, int* ret) {       \
     khint_t x;                                                                 \
     if (h->n_occupied >= h->upper_bound) { /* update the hash table */         \
       if (h->n_buckets > (h->size << 1)) {                                     \
@@ -394,7 +396,7 @@ static const double __ac_HASH_UPPER = 0.77;
       *ret = 0; /* Don't touch h->keys[x] if present and not deleted */        \
     return x;                                                                  \
   }                                                                            \
-  SCOPE void kh_del_##name(name* h, khint_t x) {                               \
+  SCOPE void kh_del_##name(kh_##name##_t* h, khint_t x) {                      \
     if (x != h->n_buckets && !__ac_iseither(h->flags, x)) {                    \
       __ac_set_isdel_true(h->flags, x);                                        \
       --h->size;                                                               \

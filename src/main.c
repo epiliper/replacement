@@ -895,23 +895,88 @@ void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
  */
 
 // struct mapRenderInfo
-KHASH_MAP_INIT_INT(mapRenderInfo, RenderInfo);
-
-// struct mapThing:
-KHASH_MAP_INIT_INT(mapThing, Thing);
+KHASH_MAP_INIT_INT(void, void*);
+KHASH_MAP_INIT_INT(ri, RenderInfo);
 
 // The rendered
 typedef struct Renderer {
-  mapRenderInfo renderinfos;  // map render info to int id
-  mapThing things;            // map things to int id
-  int curid;                  // state used to generate IDs for new things
+  kh_ri_t* renderinfos;  // map render info to int id
+  kh_void_t* things;     // map things to int id
+  int curid;             // state used to generate IDs for new things
+  bool init;
 } Renderer;
 
-Result rendererDeleteThing(int id) { return Ok; }
+static Renderer RENDERER;
 
-Result rendererAddThing(Thing* t) { return Ok; }
+void rendererInitialize() {
+  if (RENDERER.init) {
+    return;
+  }
 
-Result rendererRender() { return Ok; }
+  RENDERER.renderinfos = kh_init_ri();
+  RENDERER.things = kh_init_void();
+
+  RENDERER.curid = 0;
+  RENDERER.init = true;
+};
+
+Result rendererDeleteThing(int id) {
+  khiter_t k;
+  k = kh_get_void(RENDERER.things, id);
+
+  if (k == kh_end(RENDERER.things)) {
+    log_warn("Attempted to delete nonexistent thing w/ id: %d", id);
+    return Ok;
+  }
+
+  // TODO: free thing here.
+
+  kh_del_void(RENDERER.things, k);
+
+  return Ok;
+}
+
+Result rendererAddThing(Thing* t) {
+  khiter_t k;
+  RenderInfo ri;
+  int ret;
+
+  // Create renderinfo for this item if we haven't already.
+  if (kh_get_ri(RENDERER.renderinfos, t->type) !=
+      kh_end(RENDERER.renderinfos)) {
+    ri = kh_val(RENDERER.renderinfos, k);
+  } else {
+    ri = (t->render.rinit)();
+    kh_put_ri(RENDERER.renderinfos, k, &ret);
+    kh_val(RENDERER.renderinfos, k) = ri;
+  }
+
+  // Add it to the list of things to render.
+  do {
+    t->id = RENDERER.curid++;
+  } while (kh_get_void(RENDERER.things, t->id) == kh_end(RENDERER.things));
+
+  kh_value(RENDERER.things, k) = t;
+
+  return Ok;
+}
+
+Result rendererRender() {
+  khiter_t k;
+  Thing* t;
+
+  for (khint_t i = kh_begin(RENDERER.things); i != kh_end(RENDERER.things);
+       ++i) {
+    if (!kh_exist(RENDERER.things, i)) continue;
+    t = kh_val(RENDERER.things, i);
+
+    // render
+    (t->render.rfunc)(t, &t->loc, t->render.ri,
+                      (RenderMatrices){&pCam.proj, &pCam.view}, NULL);
+  }
+
+  return Ok;
+}
 
 /*
  * =====
