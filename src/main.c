@@ -66,11 +66,11 @@ enum {
 };
 
 enum {
-	K_MOUSE_LEFT,
-	K_MOUSE_MIDDLE,
-	K_MOUSE_RIGHT,
+  K_MOUSE_LEFT,
+  K_MOUSE_MIDDLE,
+  K_MOUSE_RIGHT,
 
-	K_MOUSE_BINDS,
+  K_MOUSE_BINDS,
 };
 
 // default keybindings
@@ -90,13 +90,13 @@ enum {
 };
 
 Keybinding Mousebinds[K_MOUSE_BINDS] = {
-	KEYBIND(GLFW_MOUSE_BUTTON_1, NO_CALLBACK),
-	KEYBIND(GLFW_MOUSE_BUTTON_3, NO_CALLBACK),
-	KEYBIND(GLFW_MOUSE_BUTTON_2, NO_CALLBACK),
+    KEYBIND(GLFW_MOUSE_BUTTON_1, NO_CALLBACK),
+    KEYBIND(GLFW_MOUSE_BUTTON_3, NO_CALLBACK),
+    KEYBIND(GLFW_MOUSE_BUTTON_2, NO_CALLBACK),
 };
 
 Keybinding Keybinds[K_BINDS] = {
-	
+
     KEYBIND(GLFW_KEY_W, NO_CALLBACK),      // forward
     KEYBIND(GLFW_KEY_A, NO_CALLBACK),      // left
     KEYBIND(GLFW_KEY_D, NO_CALLBACK),      // right
@@ -142,24 +142,25 @@ void keybindingsPoll(void* window, int key, int scancode, int action,
   }
 }
 
-void mousebindingsPoll(void *window, int key, int action, int mods) {
-	int k, c;
-	for (int i = 0; i < K_MOUSE_BINDS; i++) {
-		k = Mousebinds[i].key;
-		c = Mousebinds[i].callback;
+void mousebindingsPoll(void* window, int key, int action, int mods) {
+  int k, c;
+  for (int i = 0; i < K_MOUSE_BINDS; i++) {
+    k = Mousebinds[i].key;
+    c = Mousebinds[i].callback;
 
-		if (key == k) {
-			switch (c) {
-				case NO_CALLBACK:
-					Mousebinds[i].pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
-					break;
-				case CALLBACK_TOGGLE:
-					Mousebinds[i].pressed = (action == GLFW_PRESS);
-					break;
-			}
-			break;
-		}
-	}
+    if (key == k) {
+      switch (c) {
+        case NO_CALLBACK:
+          Mousebinds[i].pressed =
+              (action == GLFW_PRESS || action == GLFW_REPEAT);
+          break;
+        case CALLBACK_TOGGLE:
+          Mousebinds[i].pressed = (action == GLFW_PRESS);
+          break;
+      }
+      break;
+    }
+  }
 }
 
 // Attach keybindings to window.
@@ -602,11 +603,6 @@ void pCamMove(int direction) {
  *
  */
 
-typedef struct Ray {
-	vec3 start;
-	vec3 end;
-};
-
 void getNormalizedDeviceCoordinates(int resX, int resY, float mouseX,
                                     float mouseY, vec2 dest) {
   float newx = (2.0f * mouseX) / (float)resX - 1.0f;
@@ -630,8 +626,7 @@ void clipCoordsToEyeSpace(vec4 clip_coords, mat4 projection, vec4 dest) {
 }
 
 /// Reverse the eye coordinates to world space
-void eyeCoordsToWorldSpace(vec4 eye_coords, mat4 view,
-                           vec3 posdest) {
+void eyeCoordsToWorldSpace(vec4 eye_coords, mat4 view, vec3 posdest) {
   mat4 inv;
   glm_mat4_inv(view, inv);
 
@@ -660,9 +655,9 @@ void calculateRayDirection(int width, int height, float x, float y,
   eyeCoordsToWorldSpace(eye_coords, view, posdest);
 }
 
-#define GET_MOUSE_WORLD_POS(dest) \
-	calculateRayDirection(WINDOW.resx, WINDOW.resy, MOUSE.xpos, MOUSE.ypos, pCam.proj, pCam.view, dest)
-
+#define GET_MOUSE_WORLD_POS(dest)                                         \
+  calculateRayDirection(WINDOW.resx, WINDOW.resy, MOUSE.xpos, MOUSE.ypos, \
+                        pCam.proj, pCam.view, dest)
 
 /*
  * =======
@@ -687,13 +682,13 @@ void updatePlayer() {
     pCamToggleMode(WINDOW.resx, WINDOW.resy);
     KRELEASE(K_EDIT);
   }
-  
+
   if (MPRESSED(K_MOUSE_LEFT)) {
-  	printf("Pressed left mouse");
-  	vec3 dest;
-  	GET_MOUSE_WORLD_POS(dest);
-  	glm_vec3_print(dest, stderr);
-  	MRELEASE(K_MOUSE_LEFT);
+    printf("Pressed left mouse");
+    vec3 dest;
+    GET_MOUSE_WORLD_POS(dest);
+    glm_vec3_print(dest, stderr);
+    MRELEASE(K_MOUSE_LEFT);
   }
 }
 
@@ -907,22 +902,16 @@ KHASH_MAP_INIT_INT(mapThing, Thing);
 
 // The rendered
 typedef struct Renderer {
-	mapRenderInfo renderinfos;	// map render info to int id
-	mapThing things;						// map things to int id
-	int curid;                  // state used to generate IDs for new things
+  mapRenderInfo renderinfos;  // map render info to int id
+  mapThing things;            // map things to int id
+  int curid;                  // state used to generate IDs for new things
 } Renderer;
 
-Result rendererDeleteThing(int id) {
-	return Ok;
-}
+Result rendererDeleteThing(int id) { return Ok; }
 
-Result rendererAddThing(Thing *t) {
-	return Ok;
-}
+Result rendererAddThing(Thing* t) { return Ok; }
 
-Result rendererRender() {
-	return Ok;
-}
+Result rendererRender() { return Ok; }
 
 /*
  * =====
