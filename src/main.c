@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdarg.h>
+#include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -10,7 +11,10 @@
 #include "khash.h"
 #include "thing.h"
 #include "utils.h"
+#include "time.h"
 #include "log.h"
+
+#include "float.h"
 
 #include "mesh.h"
 
@@ -18,6 +22,9 @@
 #include FT_FREETYPE_H
 
 #define TITLE "replacement"
+
+#define MIN(a, b) (a) > (b) ? (b) : (a)
+#define MAX(a, b) (a) > (b) ? (a) : (b)
 
 /*
  * ============
@@ -922,7 +929,6 @@ void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
 KHASH_MAP_INIT_INT(void, void*);
 KHASH_MAP_INIT_INT(ri, RenderInfo);
 
-// The rendered
 typedef struct Renderer {
   kh_ri_t* renderinfos;  // map render info to int id
   kh_void_t* things;     // map things to int id
@@ -1019,6 +1025,86 @@ Result rendererRender() {
 }
 
 /*
+ * ========
+ * @PHYSICS
+ * ========
+ */
+
+#define NANOS_PER_SECOND 1000000000
+
+typedef struct {
+	uint64_t time, last_time, delta, second_frames, fps, last_second;
+	struct timespec s;
+} Timer;
+
+static Timer TIMER = {0};
+
+uint64_t timeGetNanoseconds() {
+	clock_gettime(CLOCK_REALTIME, &TIMER.s);
+	return TIMER.s.tv_nsec + (NANOS_PER_SECOND * TIMER.s.tv_sec);
+}
+
+void timeInit() {
+	uint64_t t = timeGetNanoseconds();
+	TIMER.time = t;
+	TIMER.last_time = t;
+	TIMER.delta = 0;
+	TIMER.second_frames = 0;
+	TIMER.fps = 0;
+	TIMER.last_second = 0;
+}
+
+void timeUpdate() {
+	TIMER.second_frames++;
+	TIMER.time = timeGetNanoseconds();
+	TIMER.delta = TIMER.time - TIMER.last_time;
+	TIMER.last_time = TIMER.time;
+
+	if (TIMER.time - TIMER.last_second >= NANOS_PER_SECOND) {
+		TIMER.fps = TIMER.second_frames;
+		TIMER.second_frames = 0;
+		TIMER.last_second = TIMER.time;
+		log_debug("FPS: %lu", TIMER.fps);
+	}
+
+}
+
+typedef struct {
+	vec3 min;
+	vec3 max;
+} aabb;
+
+void aabbCaculate(vec3 *vertices, int n, aabb *dest) {
+	vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX}, max = {FLT_MIN, FLT_MIN, FLT_MIN};
+	for (int i = 0; i < n; i++) {
+		min[0] = MIN(min[0], vertices[i][0]);
+		min[1] = MIN(min[1], vertices[i][1]);
+		min[2] = MIN(min[2], vertices[i][2]);
+
+		max[0] = MAX(max[0], vertices[i][0]);
+		max[1] = MAX(max[1], vertices[i][1]);
+		max[2] = MAX(max[2], vertices[i][2]);
+	}
+
+	glm_vec3_copy(min, dest->min);
+	glm_vec3_copy(max, dest->max);
+}
+
+bool aabbCollide(aabb *a, aabb *b) {
+    return (a->min[0] <= b->max[0] && a->max[0] >= b->min[0]) &&
+           (a->min[1] <= b->max[1] && a->max[1] >= b->min[1]) &&
+           (a->min[2] <= b->max[2] && a->max[2] >= b->min[2]);
+}
+
+// map colliders to object ID.
+KHASH_MAP_INIT_INT(colliders, aabb);
+
+typedef struct {
+	kh_colliders_t colliders;
+} PhysicsEngine;
+
+
+/*
  * =====
  * @MAIN
  * =====
@@ -1064,6 +1150,7 @@ int main(void) {
   rendererAddThing(square);
   rendererAddThing(bpmodel);
 
+	timeInit();
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
@@ -1078,6 +1165,7 @@ int main(void) {
     /*            50); */
 
     windowEndFrame();
+    timeUpdate();
   }
 
   windowTerminate();
