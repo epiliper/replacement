@@ -425,7 +425,6 @@ void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
   shaderSetMat4(ri.shader, "view", *rm.view);
   shaderSetMat4(ri.shader, "model", model);
 
-	glm_vec4_print(self->color, stderr);
   shaderSetVec4(ri.shader, "color", self->color);
   GL glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 };
@@ -440,32 +439,32 @@ struct CubeThing {
  * ========
  */
 
-Thing *thingLoadFromData(void* data, int type, Body *loc) {
+Thing* thingLoadFromData(void* data, int type, Body* loc) {
   Renderable render;
-  Thing *dest = malloc(sizeof(Thing));
+  Thing* dest = malloc(sizeof(Thing));
 
   if (!dest) {
-  	log_error("failed to allocate memory for thing with type: %d", type);
-  	return NULL;
+    log_error("failed to allocate memory for thing with type: %d", type);
+    return NULL;
   }
 
   switch (type) {
-		case THING_TRIANGLE:
-			render.rfunc = (RenderFunc)renderTriangle;
-			render.rinit = (RenderInitFunc)renderInitTriangle;
-			break;
-		case THING_SQUARE:
-			render.rfunc = (RenderFunc)renderSquare;
-			render.rinit = (RenderInitFunc)renderInitSquare;
-			break;
-		case THING_BACKPACK:
-			// We assume the model has already been loaded.
-			render.rfunc = (RenderFunc)renderModel;
-			render.rinit = (RenderInitFunc)renderInitModel;
-			break;
-		default:
-			log_error("Unknown type id: %d", type);
-			return NULL;
+    case THING_TRIANGLE:
+      render.rfunc = (RenderFunc)renderTriangle;
+      render.rinit = (RenderInitFunc)renderInitTriangle;
+      break;
+    case THING_SQUARE:
+      render.rfunc = (RenderFunc)renderSquare;
+      render.rinit = (RenderInitFunc)renderInitSquare;
+      break;
+    case THING_BACKPACK:
+      // We assume the model has already been loaded.
+      render.rfunc = (RenderFunc)renderModel;
+      render.rinit = (RenderInitFunc)renderInitModel;
+      break;
+    default:
+      log_error("Unknown type id: %d", type);
+      return NULL;
   }
 
   dest->type = type;
@@ -629,6 +628,91 @@ void pCamMove(int direction) {
 }
 
 /*
+ * ========
+ * @PHYSICS
+ * ========
+ */
+
+#define NANOS_PER_SECOND 1000000000
+
+typedef struct {
+  uint64_t time, last_time, delta, second_frames, fps, last_second;
+  struct timespec s;
+} Timer;
+
+static Timer TIMER = {0};
+
+uint64_t timeGetNanoseconds() {
+  clock_gettime(CLOCK_REALTIME, &TIMER.s);
+  return TIMER.s.tv_nsec + (NANOS_PER_SECOND * TIMER.s.tv_sec);
+}
+
+void timeInit() {
+  uint64_t t = timeGetNanoseconds();
+  TIMER.time = t;
+  TIMER.last_time = t;
+  TIMER.delta = 0;
+  TIMER.second_frames = 0;
+  TIMER.fps = 0;
+  TIMER.last_second = 0;
+}
+
+void timeUpdate() {
+  TIMER.second_frames++;
+  TIMER.time = timeGetNanoseconds();
+  TIMER.delta = TIMER.time - TIMER.last_time;
+  TIMER.last_time = TIMER.time;
+
+  if (TIMER.time - TIMER.last_second >= NANOS_PER_SECOND) {
+    TIMER.fps = TIMER.second_frames;
+    TIMER.second_frames = 0;
+    TIMER.last_second = TIMER.time;
+    log_debug("FPS: %lu", TIMER.fps);
+  }
+}
+
+typedef struct {
+  vec3 min;
+  vec3 max;
+} aabb;
+
+void aabbCaculate(vec3* vertices, int n, aabb* dest) {
+  vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX}, max = {FLT_MIN, FLT_MIN, FLT_MIN};
+  for (int i = 0; i < n; i++) {
+    min[0] = MIN(min[0], vertices[i][0]);
+    min[1] = MIN(min[1], vertices[i][1]);
+    min[2] = MIN(min[2], vertices[i][2]);
+
+    max[0] = MAX(max[0], vertices[i][0]);
+    max[1] = MAX(max[1], vertices[i][1]);
+    max[2] = MAX(max[2], vertices[i][2]);
+  }
+
+  glm_vec3_copy(min, dest->min);
+  glm_vec3_copy(max, dest->max);
+}
+
+bool aabbCollide(aabb* a, aabb* b) {
+  return (a->min[0] <= b->max[0] && a->max[0] >= b->min[0]) &&
+         (a->min[1] <= b->max[1] && a->max[1] >= b->min[1]) &&
+         (a->min[2] <= b->max[2] && a->max[2] >= b->min[2]);
+}
+
+// map colliders to object ID.
+KHASH_MAP_INIT_INT(colliders, aabb);
+
+typedef struct {
+  kh_colliders_t colliders;
+} PhysicsEngine;
+
+#define FRICTION_COEFFICIENT 0.85
+
+void attemptMove(vec3 startpos, vec3 movement) {
+  glm_vec3_scale(movement, FRICTION_COEFFICIENT, movement);
+  glm_vec3_add(startpos, movement, startpos);
+}
+
+/*
  * =========
  * @PICKING
  * =========
@@ -696,18 +780,33 @@ void calculateRayDirection(int width, int height, float x, float y,
  * @PLAYER
  * =======
  */
+
 void updatePlayer() {
+  vec3 movement = {0, 0, 0};
+  float move_speed = 0.4;
+  int moved = 0;
+
   if (KPRESSED(K_MOVE_FORW)) {
-    pCamMove(CMOVE_FORW);
+    glm_vec3_add(movement, (vec3){pCam.front[0], 0, pCam.front[2]}, movement);
+    moved = 1;
   }
   if (KPRESSED(K_MOVE_LEFT)) {
-    pCamMove(CMOVE_LEFT);
+    glm_vec3_sub(movement, (vec3){pCam.right[0], 0, pCam.right[2]}, movement);
+    moved = 1;
   }
   if (KPRESSED(K_MOVE_RIGHT)) {
-    pCamMove(CMOVE_RIGHT);
+    glm_vec3_add(movement, (vec3){pCam.right[0], 0, pCam.right[2]}, movement);
+    moved = 1;
   }
   if (KPRESSED(K_MOVE_BACK)) {
-    pCamMove(CMOVE_BACK);
+    glm_vec3_sub(movement, (vec3){pCam.front[0], 0, pCam.front[2]}, movement);
+    moved = 1;
+  }
+
+  if (moved) {
+    glm_normalize(movement);
+    glm_vec3_scale(movement, move_speed, movement);
+    attemptMove(pCam.pos, movement);
   }
 
   if (KPRESSED(K_EDIT)) {
@@ -936,7 +1035,8 @@ typedef struct Renderer {
   bool init;
 } Renderer;
 
-static Renderer RENDERER = {.renderinfos = NULL, .things = NULL, .curid = -1, .init = false};
+static Renderer RENDERER = {
+    .renderinfos = NULL, .things = NULL, .curid = -1, .init = false};
 
 void rendererInitialize() {
   if (RENDERER.init) {
@@ -951,10 +1051,10 @@ void rendererInitialize() {
 };
 
 Result rendererDeleteThing(int id) {
-	if (!RENDERER.init) {
-		log_error("Renderer not initialized!");
-		return Err;
-	}
+  if (!RENDERER.init) {
+    log_error("Renderer not initialized!");
+    return Err;
+  }
   khiter_t k;
   k = kh_get_void(RENDERER.things, id);
 
@@ -971,38 +1071,39 @@ Result rendererDeleteThing(int id) {
 }
 
 Result rendererAddThing(Thing* t) {
-	if (!RENDERER.init) {
-		log_error("Renderer not initialized!");
-		return Err;
-	}
+  if (!RENDERER.init) {
+    log_error("Renderer not initialized!");
+    return Err;
+  }
 
   khiter_t k;
   RenderInfo ri;
   int ret;
 
-  log_debug("Adding thing with type %d", t->type);
-
   // Create renderinfo for this item if we haven't already.
   if ((k = kh_get_ri(RENDERER.renderinfos, t->type)) !=
       kh_end(RENDERER.renderinfos)) {
-    ri = kh_val(RENDERER.renderinfos, k);
-    log_debug("Already initialized render info for object of type %d: ", t->type);
+    t->render.ri = kh_val(RENDERER.renderinfos, k);
+    log_debug("Already initialized render info for object of type %d: ",
+              t->type);
   } else {
     ri = (t->render.rinit)();
-    k = kh_put_ri(RENDERER.renderinfos, k, &ret);
+    k = kh_put_ri(RENDERER.renderinfos, t->type, &ret);
 
     kh_value(RENDERER.renderinfos, k) = ri;
     t->render.ri = ri;
   }
 
+  // Add it to the list of things to render.
+  do {
+    t->id = RENDERER.curid++;
+  } while ((k = kh_get_void(RENDERER.things, t->id)) !=
+           kh_end(RENDERER.things));
 
- // Add it to the list of things to render.
- do {
-   t->id = RENDERER.curid++;
- } while ((k = kh_get_void(RENDERER.things, t->id)) != kh_end(RENDERER.things));
-
-	k = kh_put_void(RENDERER.things, k, &ret);
+  k = kh_put_void(RENDERER.things, t->id, &ret);
   kh_value(RENDERER.things, k) = t;
+
+  log_debug("Added thing with ID %d", t->id);
 
   return Ok;
 }
@@ -1018,91 +1119,12 @@ Result rendererRender() {
     t = kh_val(RENDERER.things, i);
     // render
     (t->render.rfunc)(t->self, &t->loc, t->render.ri,
-                      (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view}, NULL);
+                      (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view},
+                      NULL);
   }
 
   return Ok;
 }
-
-/*
- * ========
- * @PHYSICS
- * ========
- */
-
-#define NANOS_PER_SECOND 1000000000
-
-typedef struct {
-	uint64_t time, last_time, delta, second_frames, fps, last_second;
-	struct timespec s;
-} Timer;
-
-static Timer TIMER = {0};
-
-uint64_t timeGetNanoseconds() {
-	clock_gettime(CLOCK_REALTIME, &TIMER.s);
-	return TIMER.s.tv_nsec + (NANOS_PER_SECOND * TIMER.s.tv_sec);
-}
-
-void timeInit() {
-	uint64_t t = timeGetNanoseconds();
-	TIMER.time = t;
-	TIMER.last_time = t;
-	TIMER.delta = 0;
-	TIMER.second_frames = 0;
-	TIMER.fps = 0;
-	TIMER.last_second = 0;
-}
-
-void timeUpdate() {
-	TIMER.second_frames++;
-	TIMER.time = timeGetNanoseconds();
-	TIMER.delta = TIMER.time - TIMER.last_time;
-	TIMER.last_time = TIMER.time;
-
-	if (TIMER.time - TIMER.last_second >= NANOS_PER_SECOND) {
-		TIMER.fps = TIMER.second_frames;
-		TIMER.second_frames = 0;
-		TIMER.last_second = TIMER.time;
-		log_debug("FPS: %lu", TIMER.fps);
-	}
-
-}
-
-typedef struct {
-	vec3 min;
-	vec3 max;
-} aabb;
-
-void aabbCaculate(vec3 *vertices, int n, aabb *dest) {
-	vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX}, max = {FLT_MIN, FLT_MIN, FLT_MIN};
-	for (int i = 0; i < n; i++) {
-		min[0] = MIN(min[0], vertices[i][0]);
-		min[1] = MIN(min[1], vertices[i][1]);
-		min[2] = MIN(min[2], vertices[i][2]);
-
-		max[0] = MAX(max[0], vertices[i][0]);
-		max[1] = MAX(max[1], vertices[i][1]);
-		max[2] = MAX(max[2], vertices[i][2]);
-	}
-
-	glm_vec3_copy(min, dest->min);
-	glm_vec3_copy(max, dest->max);
-}
-
-bool aabbCollide(aabb *a, aabb *b) {
-    return (a->min[0] <= b->max[0] && a->max[0] >= b->min[0]) &&
-           (a->min[1] <= b->max[1] && a->max[1] >= b->min[1]) &&
-           (a->min[2] <= b->max[2] && a->max[2] >= b->min[2]);
-}
-
-// map colliders to object ID.
-KHASH_MAP_INIT_INT(colliders, aabb);
-
-typedef struct {
-	kh_colliders_t colliders;
-} PhysicsEngine;
-
 
 /*
  * =====
@@ -1128,10 +1150,14 @@ int main(void) {
   textInit();
   modelLoaderInit();
 
-	TriangleThing t = {.color = {0, 0, 1, 1}};
+  TriangleThing t = {.color = {0, 0, 1, 1}};
   SquareThing s = {.color = {0, 0, 1, 0.2}};
-  Body tbody = {.pos = {0, 0, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
-  Body sbody = {.pos = {0, -1, -5}, .height = 2, .width = 2, .rot = {90, 0, 0}};
+  SquareThing floor = {.color = {0, 0, 1, 0.2}};
+
+  Body floorbody = {
+      .pos = {0, 0, 0}, .width = 100, .height = 100, .rot = {90, 0, 0}};
+
+  Body tbody = {.pos = {0, 1, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
 
   Model backpack = {0};
 
@@ -1140,17 +1166,17 @@ int main(void) {
   };
 
   rendererInitialize();
-  Thing *triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
-  Thing *triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &sbody);
-  Thing *square = thingLoadFromData(&s, THING_SQUARE, &sbody);
-  Thing *bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
+  Thing* triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
+  Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
+  Thing* floorthing = thingLoadFromData(&floor, THING_SQUARE, &floorbody);
+  Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
 
   rendererAddThing(triangle);
   rendererAddThing(triangle2);
-  rendererAddThing(square);
   rendererAddThing(bpmodel);
+  rendererAddThing(floorthing);
 
-	timeInit();
+  timeInit();
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
