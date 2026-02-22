@@ -23,9 +23,6 @@
 
 #define TITLE "replacement"
 
-#define MIN(a, b) (a) > (b) ? (b) : (a)
-#define MAX(a, b) (a) > (b) ? (a) : (b)
-
 /*
  * ============
  * @KEYBINDINGS
@@ -284,198 +281,6 @@ int windowShouldClose() { return glfwWindowShouldClose(WINDOW.window); }
 void windowTerminate() { glfwTerminate(); }
 
 /*
- * ===========
- * @PRIMITIVES
- * ===========
- */
-
-// clang-format off
-float TRIANGLE_VERTICES[] = {
-    -0.5, -0.5, 0, 
-    0.5, -0.5, 0, 
-    0.0f, 0.5f, 0,
-};
-
-float SQUARE_VERTICES[] = {
-	-0.5, -0.5, 0,
-	0.5, -0.5, 0,
-	0.5, 0.5, 0,
-	-0.5, 0.5, 0
-};
-
-unsigned int SQUARE_INDICES[] = {
-	0, 1, 2,
-	2, 3, 0
-};
-
-// clang-format on
-
-typedef struct TriangleThing {
-  vec4 color;
-} TriangleThing;
-
-typedef struct SquareThing {
-  vec4 color;
-} SquareThing;
-
-const char* triangleVert =
-    "#version 330 core\n"
-    "layout (location = 0) in vec3 pos;\n"
-    "uniform mat4 proj;\n"
-    "uniform mat4 view;\n"
-    "uniform mat4 model;\n"
-    "void main() {\n"
-    "gl_Position = proj * view * model * vec4(pos.xyz, 1.0f);\n"
-    "}";
-
-const char* triangleFrag =
-    "#version 330 core\n"
-    "out vec4 fragColor;\n"
-    "uniform vec4 color;\n"
-    "void main() {\n"
-    "fragColor = color;\n"
-    "}";
-
-RenderInfo renderInitTriangle() {
-  RenderInfo ret = {0};
-
-  unsigned int vao, vbo;
-
-  glGenVertexArrays(1, &vao);
-  glBindVertexArray(vao);
-
-  glGenBuffers(1, &vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(TRIANGLE_VERTICES), TRIANGLE_VERTICES,
-               GL_STATIC_DRAW);
-
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-  glEnableVertexAttribArray(0);
-
-  ret.vao = vao;
-  ret.shader = shaderFromCharVF(triangleVert, triangleFrag);
-
-  checkGlError();
-  return ret;
-}
-
-RenderInfo renderInitSquare() {
-  RenderInfo ri;
-
-  unsigned int vbo, ebo;
-  glGenVertexArrays(1, &ri.vao);
-  glGenBuffers(1, &vbo);
-  glGenBuffers(1, &ebo);
-
-  glBindVertexArray(ri.vao);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(SQUARE_VERTICES), SQUARE_VERTICES,
-               GL_STATIC_DRAW);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(SQUARE_INDICES), SQUARE_INDICES,
-               GL_STATIC_DRAW);
-
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-  glEnableVertexAttribArray(0);
-
-  ri.shader = shaderFromCharVF(triangleVert, triangleFrag);
-  checkGlError();
-
-  return ri;
-};
-
-void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
-                    RenderMatrices rm, RenderMods* mods) {
-  GL glBindVertexArray(ri.vao);
-  GL glUseProgram(ri.shader);
-  mat4 model;
-  glm_mat4_identity(model);
-  glm_translate(model, body->pos);
-
-  glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
-  glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
-
-  glm_scale(model, (vec3){body->width, body->height, 1});
-
-  shaderSetMat4(ri.shader, "proj", *rm.proj);
-  shaderSetMat4(ri.shader, "view", *rm.view);
-  shaderSetMat4(ri.shader, "model", model);
-
-  shaderSetVec4(ri.shader, "color", self->color);
-
-  GL glDrawArrays(GL_TRIANGLES, 0, 3);
-}
-
-void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
-                  RenderMatrices rm, RenderMods* mods) {
-  GL glUseProgram(ri.shader);
-  GL glBindVertexArray(ri.vao);
-
-  mat4 model;
-  glm_mat4_identity(model);
-  glm_translate(model, body->pos);
-
-  glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
-  glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
-
-  glm_scale(model, (vec3){body->width, body->height, 1});
-
-  shaderSetMat4(ri.shader, "proj", *rm.proj);
-  shaderSetMat4(ri.shader, "view", *rm.view);
-  shaderSetMat4(ri.shader, "model", model);
-
-  shaderSetVec4(ri.shader, "color", self->color);
-  GL glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-};
-
-struct CubeThing {
-  vec4 color;
-};
-
-/*
- * ========
- * @Things + Generics
- * ========
- */
-
-Thing* thingLoadFromData(void* data, int type, Body* loc) {
-  Renderable render;
-  Thing* dest = malloc(sizeof(Thing));
-
-  if (!dest) {
-    log_error("failed to allocate memory for thing with type: %d", type);
-    return NULL;
-  }
-
-  switch (type) {
-    case THING_TRIANGLE:
-      render.rfunc = (RenderFunc)renderTriangle;
-      render.rinit = (RenderInitFunc)renderInitTriangle;
-      break;
-    case THING_SQUARE:
-      render.rfunc = (RenderFunc)renderSquare;
-      render.rinit = (RenderInitFunc)renderInitSquare;
-      break;
-    case THING_BACKPACK:
-      // We assume the model has already been loaded.
-      render.rfunc = (RenderFunc)renderModel;
-      render.rinit = (RenderInitFunc)renderInitModel;
-      break;
-    default:
-      log_error("Unknown type id: %d", type);
-      return NULL;
-  }
-
-  dest->type = type;
-  dest->self = data;
-  dest->loc = *loc;
-  dest->render = render;
-
-  return dest;
-}
-
-/*
  * =======
  * @CAMERA
  * =======
@@ -671,33 +476,6 @@ void timeUpdate() {
   }
 }
 
-typedef struct {
-  vec3 min;
-  vec3 max;
-} aabb;
-
-void aabbCaculate(vec3* vertices, int n, aabb* dest) {
-  vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX}, max = {FLT_MIN, FLT_MIN, FLT_MIN};
-  for (int i = 0; i < n; i++) {
-    min[0] = MIN(min[0], vertices[i][0]);
-    min[1] = MIN(min[1], vertices[i][1]);
-    min[2] = MIN(min[2], vertices[i][2]);
-
-    max[0] = MAX(max[0], vertices[i][0]);
-    max[1] = MAX(max[1], vertices[i][1]);
-    max[2] = MAX(max[2], vertices[i][2]);
-  }
-
-  glm_vec3_copy(min, dest->min);
-  glm_vec3_copy(max, dest->max);
-}
-
-bool aabbCollide(aabb* a, aabb* b) {
-  return (a->min[0] <= b->max[0] && a->max[0] >= b->min[0]) &&
-         (a->min[1] <= b->max[1] && a->max[1] >= b->min[1]) &&
-         (a->min[2] <= b->max[2] && a->max[2] >= b->min[2]);
-}
-
 // map colliders to object ID.
 KHASH_MAP_INIT_INT(colliders, aabb);
 
@@ -803,11 +581,11 @@ void updatePlayer() {
     moved = 1;
   }
 
-  if (moved) {
-    glm_normalize(movement);
-    glm_vec3_scale(movement, move_speed, movement);
-    attemptMove(pCam.pos, movement);
-  }
+  glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement);
+
+  glm_normalize(movement);
+  glm_vec3_scale(movement, move_speed, movement);
+  attemptMove(pCam.pos, movement);
 
   if (KPRESSED(K_EDIT)) {
     pCamToggleMode(WINDOW.resx, WINDOW.resy);
@@ -1001,22 +779,24 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
 
 #define GRID_MARGIN 10
 
-void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
-                    RenderMatrices rm) {
-  Body b = {.rot = {90, 0, 0}, .height = 0.1, .width = 0.1, .pos = {0, 0, 0}};
+/* void renderEditGrid(SquareThing* s, RenderInfo ri, vec3 pos, int step_size,
+ */
+/*                     RenderMatrices rm) { */
+/*   Body b = {.rot = {90, 0, 0}, .height = 0.1, .width = 0.1, .pos = {0, 0,
+ * 0}}; */
 
-  int xstart = pos[0] - GRID_MARGIN, xend = pos[0] + GRID_MARGIN;
-  int zstart = pos[2] - GRID_MARGIN, zend = pos[2] + GRID_MARGIN;
+/*   int xstart = pos[0] - GRID_MARGIN, xend = pos[0] + GRID_MARGIN; */
+/*   int zstart = pos[2] - GRID_MARGIN, zend = pos[2] + GRID_MARGIN; */
 
-  // TODO: make instanced
-  for (int i = xstart; i < xend; i += step_size) {
-    for (int j = zstart; j < zend; j += step_size) {
-      b.pos[0] = i - 0.5;
-      b.pos[2] = j - 0.5;
-      renderSquare(s, &b, ri, rm, NULL);
-    }
-  }
-}
+/*   // TODO: make instanced */
+/*   for (int i = xstart; i < xend; i += step_size) { */
+/*     for (int j = zstart; j < zend; j += step_size) { */
+/*       b.pos[0] = i - 0.5; */
+/*       b.pos[2] = j - 0.5; */
+/*       renderSquare(s, &b, ri, rm, NULL); */
+/*     } */
+/*   } */
+/* } */
 
 /*
  * =========
@@ -1111,6 +891,7 @@ Result rendererAddThing(Thing* t) {
 Result rendererRender() {
   khiter_t k;
   Thing* t;
+  RenderInfo ri;
 
   for (khint_t i = kh_begin(RENDERER.things); i != kh_end(RENDERER.things);
        ++i) {
@@ -1121,6 +902,16 @@ Result rendererRender() {
     (t->render.rfunc)(t->self, &t->loc, t->render.ri,
                       (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view},
                       NULL);
+
+    // render bounding box as well.
+    if (t->type == THING_TRIANGLE &&
+        (k = kh_get_ri(RENDERER.renderinfos, THING_CUBE)) !=
+            kh_end(RENDERER.renderinfos)) {
+      ri = kh_val(RENDERER.renderinfos, k);
+
+      renderAABB(&(CubeThing){.color = {1, 0, 0, 0.1}}, &t->loc, ri,
+                 (RenderMatrices){&pCam.proj, .view = &pCam.view}, NULL);
+    }
   }
 
   return Ok;
@@ -1153,6 +944,7 @@ int main(void) {
   TriangleThing t = {.color = {0, 0, 1, 1}};
   SquareThing s = {.color = {0, 0, 1, 0.2}};
   SquareThing floor = {.color = {0, 0, 1, 0.2}};
+  CubeThing cube = {.color = {0, 0, 0, 0}};
 
   Body floorbody = {
       .pos = {0, 0, 0}, .width = 100, .height = 100, .rot = {90, 0, 0}};
@@ -1170,11 +962,13 @@ int main(void) {
   Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
   Thing* floorthing = thingLoadFromData(&floor, THING_SQUARE, &floorbody);
   Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
+  Thing* cubething = thingLoadFromData(&cube, THING_CUBE, &tbody);
 
   rendererAddThing(triangle);
   rendererAddThing(triangle2);
   rendererAddThing(bpmodel);
   rendererAddThing(floorthing);
+  rendererAddThing(cubething);
 
   timeInit();
   while (!windowShouldClose()) {

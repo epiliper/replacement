@@ -7,6 +7,13 @@ typedef struct {
   unsigned int vao, shader;
 } RenderInfo;
 
+typedef struct {
+  vec3 min;
+  vec3 max;
+  vec3 worldmin;
+  vec3 worldmax;
+} aabb;
+
 // matrices necessary for rendering
 typedef struct {
   mat4* proj;
@@ -14,11 +21,24 @@ typedef struct {
 } RenderMatrices;
 
 // thing types
-enum { 
-	THING_TRIANGLE,
-	THING_SQUARE,
-	THING_BACKPACK,
+enum {
+  THING_TRIANGLE,
+  THING_CUBE,
+  THING_SQUARE,
+  THING_BACKPACK,
 };
+
+typedef struct TriangleThing {
+  vec4 color;
+} TriangleThing;
+
+typedef struct SquareThing {
+  vec4 color;
+} SquareThing;
+
+typedef struct CubeThing {
+  vec4 color;
+} CubeThing;
 
 // TODO
 typedef struct {
@@ -29,6 +49,7 @@ typedef struct {
   vec3 pos;
   vec3 rot;
   float height, width;
+  aabb bbox;
 } Body;
 
 // Function to render a particular thing
@@ -58,3 +79,9 @@ typedef struct {
   uint16_t id;
 } Thing;
 #endif
+
+Thing* thingLoadFromData(void* data, int type, Body* loc);
+void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
+                RenderMods* mods);
+void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
+                RenderMods* mods);

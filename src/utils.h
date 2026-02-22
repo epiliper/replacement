@@ -8,6 +8,9 @@
  * =======
  */
 
+#define MIN(a, b) (a) > (b) ? (b) : (a)
+#define MAX(a, b) (a) > (b) ? (a) : (b)
+
 const char* rSplitOnce(const char* input, const char* delim, int side);
 
 unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile);

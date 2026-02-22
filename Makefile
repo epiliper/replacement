@@ -6,9 +6,9 @@ MEMDBG := -fsanitize=address -g
 CFLAGS := -g -o2
 
 debug: $S/main.c $S/glad.c $S/utils.c $S/log.c $S/mesh.c
-	gcc $(PKG_CONF) $(INCLUDES) $(CFLAGS) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c -o $(BIN);
+	gcc $(PKG_CONF) $(INCLUDES) $(CFLAGS) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c $S/thing.c -o $(BIN);
 	./$(BIN)
 
 release: $S/main.c $S/glad.c $S/utils.c $S/log.c $S/mesh.c
-	gcc $(PKG_CONF) $(INCLUDES) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c -o $(BIN) -o2;
+	gcc $(PKG_CONF) $(INCLUDES) $S/main.c $S/glad.c $S/log.c $S/utils.c $S/mesh.c $S/thing.c -o $(BIN) -o2;
 	./$(BIN)
