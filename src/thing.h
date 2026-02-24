@@ -7,12 +7,12 @@ typedef struct {
   unsigned int vao, shader;
 } RenderInfo;
 
-typedef struct {
-  vec3 min;
-  vec3 max;
-  vec3 worldmin;
-  vec3 worldmax;
-} aabb;
+typedef struct hit {
+  float time;
+  vec3 pos;
+  vec3 normal;
+  bool is_hit;
+} Hit;
 
 // matrices necessary for rendering
 typedef struct {
@@ -49,7 +49,7 @@ typedef struct {
   vec3 pos;
   vec3 rot;
   float height, width;
-  aabb bbox;
+  vec3 halfsize;
 } Body;
 
 // Function to render a particular thing
@@ -85,3 +85,6 @@ void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
                 RenderMods* mods);
 void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
                 RenderMods* mods);
+
+Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body);
+void aabbMinkowskiDifference(Body* a, Body* b, Body* dest);

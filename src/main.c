@@ -476,18 +476,26 @@ void timeUpdate() {
   }
 }
 
-// map colliders to object ID.
-KHASH_MAP_INIT_INT(colliders, aabb);
-
-typedef struct {
-  kh_colliders_t colliders;
-} PhysicsEngine;
-
 #define FRICTION_COEFFICIENT 0.85
 
-void attemptMove(vec3 startpos, vec3 movement) {
+void attemptMove(vec3 startpos, vec3 movement, Body* self, Body* colliders,
+                 int n_colliders) {
   glm_vec3_scale(movement, FRICTION_COEFFICIENT, movement);
+
+  Body other = {0};
+  for (int i = 0; i < n_colliders; i++) {
+    glm_vec3_copy(colliders[i].pos, other.pos);
+    glm_vec3_add(self->halfsize, colliders[i].halfsize, other.halfsize);
+
+    Hit hit = aabbIntersectRay(startpos, movement, &other);
+
+    if (hit.is_hit) {
+      log_debug("COLLISION!!!!!!!!");
+    }
+  }
+
   glm_vec3_add(startpos, movement, startpos);
+  glm_vec3_copy(startpos, self->pos);
 }
 
 /*
@@ -559,7 +567,15 @@ void calculateRayDirection(int width, int height, float x, float y,
  * =======
  */
 
-void updatePlayer() {
+static Body playerBody = {
+    .height = 1,
+    .width = 1,
+    .halfsize = 1,
+    .pos = {0, 1, 3},
+    .rot = {0, 0, 0},
+};
+
+void playerUpdate(Body* colliders, int n_colliders) {
   vec3 movement = {0, 0, 0};
   float move_speed = 0.4;
   int moved = 0;
@@ -581,11 +597,12 @@ void updatePlayer() {
     moved = 1;
   }
 
-  glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement);
+  /* glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement); */
 
   glm_normalize(movement);
   glm_vec3_scale(movement, move_speed, movement);
-  attemptMove(pCam.pos, movement);
+  /* attemptMove(pCam.pos, movement); */
+  attemptMove(pCam.pos, movement, &playerBody, colliders, n_colliders);
 
   if (KPRESSED(K_EDIT)) {
     pCamToggleMode(WINDOW.resx, WINDOW.resy);
@@ -974,7 +991,7 @@ int main(void) {
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
-    updatePlayer();
+    playerUpdate(&tbody, 1);
 
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
