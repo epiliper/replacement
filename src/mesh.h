@@ -8,7 +8,8 @@
 
 #include "stbi_image.h"
 
-typedef struct MeshVertex {
+typedef struct MeshVertex
+{
   vec3 pos;
   vec3 normals;
   vec2 texcoords;
@@ -16,7 +17,8 @@ typedef struct MeshVertex {
   vec3 bitangent;
 } MeshVertex;
 
-typedef struct MeshTexture {
+typedef struct MeshTexture
+{
   unsigned int id;
   int type;
 } MeshTexture;
@@ -25,7 +27,8 @@ typedef kvec_t(MeshVertex) mVertVec;
 typedef kvec_t(MeshTexture) mTexVec;
 typedef kvec_t(unsigned int) mIndVec;
 
-typedef struct Mesh {
+typedef struct Mesh
+{
   mVertVec vertices;
   mTexVec textures;
   mIndVec indices;
@@ -34,17 +37,19 @@ typedef struct Mesh {
 
 typedef kvec_t(Mesh) MeshVec;
 
-typedef struct Model {
+typedef struct Model
+{
   MeshVec meshes;
   const char *directory;
 } Model;
 
-extern const char* modelVert;
-extern const char* modelFrag;
+extern const char *modelVert;
+extern const char *modelFrag;
 
 void modelLoaderInit();
 Result modelLoadFromFile(Model *model, char *path);
-void renderModel(Model *m, Body *body, RenderInfo ri, RenderMatrices rm, RenderMods *mods);
+void renderModel(Model *m, Body *body, RenderInfo ri, RenderMatrices rm,
+                 RenderMods *mods);
 RenderInfo renderInitModel();
 
 #endif

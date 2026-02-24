@@ -16,7 +16,8 @@ const char* logColors[] = {
     "37", "32", "33", "31", "31",
 };
 
-void glog(int level, int line, const char* file, const char* fmt, ...) {
+void glog(int level, int line, const char* file, const char* fmt, ...)
+{
   time_t t = time(NULL);
   LOGGER.tbuf[strftime(LOGGER.tbuf, sizeof(LOGGER.tbuf), "%T", localtime(&t))] =
       '\0';
@@ -30,11 +31,14 @@ void glog(int level, int line, const char* file, const char* fmt, ...) {
   fprintf(LOGGER.out, "\n");
 };
 
-GLenum glCheckError_(int line, const char* file) {
+GLenum glCheckError_(int line, const char* file)
+{
   GLenum errorCode;
   const char* header = "GL ERROR:";
-  while ((errorCode = glGetError()) != GL_NO_ERROR) {
-    switch (errorCode) {
+  while ((errorCode = glGetError()) != GL_NO_ERROR)
+  {
+    switch (errorCode)
+    {
       case GL_INVALID_ENUM:
         glog(LOG_ERROR, line, file, "%s %s", header, "INVALID_ENUM");
         break;

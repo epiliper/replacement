@@ -3,8 +3,9 @@
 #include "utils.h"
 #include "log.h"
 #include "mesh.h"
+#include "physics.h"
 
-/* 
+/*
  * ===============
  * @THING MANAGER
  * =============
@@ -13,140 +14,57 @@
 Things THINGS = {0};
 
 // Initialize the thing manager
-void thingsInit() {
-	THINGS.things = kh_init_thing();
-	THINGS.curid = 0;
-	THINGS.init = 1;
+void thingsInit()
+{
+  THINGS.things = kh_init_thing();
+  THINGS.curid = 0;
+  THINGS.init = 1;
 }
 
-Result thingAdd(Thing *t) {
-	if (!THINGS.init) {
-		log_error("Thing manager not initialized!");
-		return Err;
-	}
-
-	int ret = 0;
-	khiter_t k;
-
-	do {
-		t->id = THINGS.curid++;
-	} while ((k = kh_get_thing(THINGS.things, t->id)) != kh_end(THINGS.things));
-
-	k = kh_put_thing(THINGS.things, t->id, &ret);
-	kh_value(THINGS.things, k) = t;
-
-	log_debug("added thing with id %d", t->id);
-
-	return Ok;
-}
-
-Result thingDelete(int id) {
-	if (!THINGS.init) {
-		log_error("Thing manager not initialized!");
-		return Err;
-	}
-
-	khiter_t k;
-	k = kh_get_thing(THINGS.things, id);
-
-	if (k == kh_end(THINGS.things)) {
-		log_warn("Attempted to delete non-existent thing with id %d", id);
-		return Err;
-			}
-
-	kh_del_thing(THINGS.things, k);
-
-	return Ok;
-}
-
-/*
- * ========
- * @PHYSICS
- * ========
- */
-
-void aabbMinMax(Body* b, vec3 min, vec3 max) {
-  glm_vec3_sub(b->pos, b->halfsize, min);
-  glm_vec3_add(b->pos, b->halfsize, max);
-}
-
-void aabbMinkowskiDifference(Body* a, Body* b, Body* dest) {
-  glm_vec3_add(a->halfsize, b->halfsize, dest->halfsize);
-  glm_vec3_sub(a->pos, b->pos, dest->pos);
-}
-
-void aabbNew(vec3* vertices, int n, Body* body) {
-  vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX}, max = {FLT_MIN, FLT_MIN, FLT_MIN};
-
-  for (int i = 0; i < n; i++) {
-    min[0] = MIN(min[0], vertices[i][0]);
-    min[1] = MIN(min[1], vertices[i][1]);
-    min[2] = MIN(min[2], vertices[i][2]);
-
-    max[0] = MAX(max[0], vertices[i][0]);
-    max[1] = MAX(max[1], vertices[i][1]);
-    max[2] = MAX(max[2], vertices[i][2]);
+Result thingAdd(Thing* t)
+{
+  if (!THINGS.init)
+  {
+    log_error("Thing manager not initialized!");
+    return Err;
   }
 
-  body->halfsize[0] = (max[0] - min[0]) / 2 * body->width;
-  body->halfsize[1] = (max[1] - min[1]) / 2 * body->height;
-  body->halfsize[2] = (max[2] - min[2]) / 2;
+  int ret = 0;
+  khiter_t k;
+
+  do
+  {
+    t->id = THINGS.curid++;
+  } while ((k = kh_get_thing(THINGS.things, t->id)) != kh_end(THINGS.things));
+
+  k = kh_put_thing(THINGS.things, t->id, &ret);
+  kh_value(THINGS.things, k) = t;
+
+  log_debug("added thing with id %d", t->id);
+
+  return Ok;
 }
 
-bool aabbCollide(Body* a, Body* b) {
-  Body* mink;
-  vec3 min, max;
-  aabbMinkowskiDifference(a, b, mink);
-  aabbMinMax(mink, min, max);
-
-  return (min[0] <= 0 && max[0] <= 0 && min[1] <= 0 && max[1] >= 0 &&
-          min[2] <= 0 && max[2] >= 0);
-}
-
-Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body) {
-  Hit hit = {0};
-  vec3 min, max;
-  aabbMinMax(body, min, max);
-
-  float last_entry = -INFINITY;
-  float first_exit = INFINITY;
-
-  for (uint8_t i = 0; i < 3; ++i) {
-    if (magnitude[i] != 0) {
-      float t1 = (min[i] - pos[i]) / magnitude[i];
-      float t2 = (max[i] - pos[i]) / magnitude[i];
-
-      last_entry = fmaxf(last_entry, fminf(t1, t2));
-      first_exit = fminf(first_exit, fmaxf(t1, t2));
-    } else if (pos[i] <= min[i] || pos[i] >= max[i]) {
-      return hit;
-    }
+Result thingDelete(int id)
+{
+  if (!THINGS.init)
+  {
+    log_error("Thing manager not initialized!");
+    return Err;
   }
 
-  if (last_entry <= first_exit && first_exit >= 0.0f && last_entry <= 1.0f) {
-    hit.pos[0] = pos[0] + magnitude[0] * last_entry;
-    hit.pos[1] = pos[1] + magnitude[1] * last_entry;
-    hit.pos[2] = pos[2] + magnitude[2] * last_entry;
+  khiter_t k;
+  k = kh_get_thing(THINGS.things, id);
 
-    hit.is_hit = true;
-    hit.time = last_entry;
-
-    float dx = hit.pos[0] - body->pos[0];
-    float dy = hit.pos[1] - body->pos[1];
-    float dz = hit.pos[2] - body->pos[2];
-
-    float px = body->halfsize[0] - fabsf(dx);
-    float py = body->halfsize[1] - fabsf(dy);
-    float pz = body->halfsize[2] - fabsf(dz);
-
-    if (px < py) {
-      hit.normal[0] = (dx > 0) - (dx < 0);
-    } else {
-      hit.normal[1] = (dy > 0) - (dy < 0);
-    }
+  if (k == kh_end(THINGS.things))
+  {
+    log_warn("Attempted to delete non-existent thing with id %d", id);
+    return Err;
   }
 
-  return hit;
+  kh_del_thing(THINGS.things, k);
+
+  return Ok;
 }
 
 /*
@@ -292,7 +210,8 @@ const char* triangleFrag =
     "fragColor = color;\n"
     "}";
 
-RenderInfo renderInitTriangle() {
+RenderInfo renderInitTriangle()
+{
   RenderInfo ret = {0};
 
   unsigned int vao, vbo;
@@ -315,7 +234,8 @@ RenderInfo renderInitTriangle() {
   return ret;
 }
 
-RenderInfo renderInitSquare() {
+RenderInfo renderInitSquare()
+{
   RenderInfo ri;
 
   unsigned int vbo, ebo;
@@ -341,7 +261,8 @@ RenderInfo renderInitSquare() {
   return ri;
 };
 
-RenderInfo renderInitCube() {
+RenderInfo renderInitCube()
+{
   RenderInfo ri;
   unsigned int vbo, ebo;
   GL glGenVertexArrays(1, &ri.vao);
@@ -366,7 +287,8 @@ RenderInfo renderInitCube() {
 }
 
 void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
-                RenderMods* mods) {
+                RenderMods* mods)
+{
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
@@ -388,7 +310,8 @@ void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
 }
 
 void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
-                RenderMods* mods) {
+                RenderMods* mods)
+{
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
@@ -413,7 +336,8 @@ void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
 };
 
 void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
-                    RenderMatrices rm, RenderMods* mods) {
+                    RenderMatrices rm, RenderMods* mods)
+{
   GL glBindVertexArray(ri.vao);
   GL glUseProgram(ri.shader);
   mat4 model;
@@ -435,7 +359,8 @@ void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
 }
 
 void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
-                  RenderMatrices rm, RenderMods* mods) {
+                  RenderMatrices rm, RenderMods* mods)
+{
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
@@ -456,16 +381,19 @@ void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
   GL glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-Thing* thingLoadFromData(void* data, int type, Body* loc) {
+Thing* thingLoadFromData(void* data, int type, Body* loc)
+{
   Renderable render;
   Thing* dest = malloc(sizeof(Thing));
 
-  if (!dest) {
+  if (!dest)
+  {
     log_error("failed to allocate memory for thing with type: %d", type);
     return NULL;
   }
 
-  switch (type) {
+  switch (type)
+  {
     case THING_TRIANGLE:
       render.rfunc = (RenderFunc)renderTriangle;
       render.rinit = (RenderInitFunc)renderInitTriangle;
