@@ -822,18 +822,16 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
  *
  */
 
-KHASH_MAP_INIT_INT(void, void*);
 KHASH_MAP_INIT_INT(ri, RenderInfo);
 
 typedef struct Renderer {
   kh_ri_t* renderinfos;  // map render info to int id
-  kh_void_t* things;     // map things to int id
   int curid;             // state used to generate IDs for new things
   bool init;
 } Renderer;
 
 static Renderer RENDERER = {
-    .renderinfos = NULL, .things = NULL, .curid = -1, .init = false};
+    .renderinfos = NULL, .curid = -1, .init = false};
 
 void rendererInitialize() {
   if (RENDERER.init) {
@@ -841,31 +839,10 @@ void rendererInitialize() {
   }
 
   RENDERER.renderinfos = kh_init_ri();
-  RENDERER.things = kh_init_void();
 
   RENDERER.curid = 0;
   RENDERER.init = true;
 };
-
-Result rendererDeleteThing(int id) {
-  if (!RENDERER.init) {
-    log_error("Renderer not initialized!");
-    return Err;
-  }
-  khiter_t k;
-  k = kh_get_void(RENDERER.things, id);
-
-  if (k == kh_end(RENDERER.things)) {
-    log_warn("Attempted to delete nonexistent thing w/ id: %d", id);
-    return Ok;
-  }
-
-  // TODO: free thing here.
-
-  kh_del_void(RENDERER.things, k);
-
-  return Ok;
-}
 
 Result rendererAddThing(Thing* t) {
   if (!RENDERER.init) {
@@ -890,31 +867,19 @@ Result rendererAddThing(Thing* t) {
     kh_value(RENDERER.renderinfos, k) = ri;
     t->render.ri = ri;
   }
-
-  // Add it to the list of things to render.
-  do {
-    t->id = RENDERER.curid++;
-  } while ((k = kh_get_void(RENDERER.things, t->id)) !=
-           kh_end(RENDERER.things));
-
-  k = kh_put_void(RENDERER.things, t->id, &ret);
-  kh_value(RENDERER.things, k) = t;
-
-  log_debug("Added thing with ID %d", t->id);
-
   return Ok;
 }
 
-Result rendererRender() {
+Result rendererRender(kh_thing_t *things) {
   khiter_t k;
   Thing* t;
   RenderInfo ri;
 
-  for (khint_t i = kh_begin(RENDERER.things); i != kh_end(RENDERER.things);
+  for (khint_t i = kh_begin(things); i != kh_end(things);
        ++i) {
-    if (!kh_exist(RENDERER.things, i)) continue;
+    if (!kh_exist(things, i)) continue;
 
-    t = kh_val(RENDERER.things, i);
+    t = kh_val(things, i);
     // render
     (t->render.rfunc)(t->self, &t->loc, t->render.ri,
                       (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view},
@@ -974,12 +939,18 @@ int main(void) {
     return 1;
   };
 
-  rendererInitialize();
+
+  // TODO: abstract thing generation, renderer addition, and thing manager addition
+
   Thing* triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
   Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
   Thing* floorthing = thingLoadFromData(&floor, THING_SQUARE, &floorbody);
   Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
   Thing* cubething = thingLoadFromData(&cube, THING_CUBE, &tbody);
+
+  timeInit();
+  rendererInitialize();
+  thingsInit();
 
   rendererAddThing(triangle);
   rendererAddThing(triangle2);
@@ -987,7 +958,12 @@ int main(void) {
   rendererAddThing(floorthing);
   rendererAddThing(cubething);
 
-  timeInit();
+  thingAdd(triangle);
+  thingAdd(triangle2);
+  thingAdd(floorthing);
+  thingAdd(bpmodel);
+  thingAdd(cubething);
+
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
@@ -995,7 +971,7 @@ int main(void) {
 
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
-    rendererRender();
+    rendererRender(THINGS.things);
 
     /* renderText(tri, "Hello there", 300.0f, 300.0f, 1.0f, (vec3){0.5, 0.8,
      * 0.2}, */

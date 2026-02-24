@@ -1,8 +1,63 @@
 #include "thing.h"
-#include <cglm/affine-pre.h>
+/* #include <cglm/affine-pre.h> */
 #include "utils.h"
 #include "log.h"
 #include "mesh.h"
+
+/* 
+ * ===============
+ * @THING MANAGER
+ * =============
+ */
+
+Things THINGS = {0};
+
+// Initialize the thing manager
+void thingsInit() {
+	THINGS.things = kh_init_thing();
+	THINGS.curid = 0;
+	THINGS.init = 1;
+}
+
+Result thingAdd(Thing *t) {
+	if (!THINGS.init) {
+		log_error("Thing manager not initialized!");
+		return Err;
+	}
+
+	int ret = 0;
+	khiter_t k;
+
+	do {
+		t->id = THINGS.curid++;
+	} while ((k = kh_get_thing(THINGS.things, t->id)) != kh_end(THINGS.things));
+
+	k = kh_put_thing(THINGS.things, t->id, &ret);
+	kh_value(THINGS.things, k) = t;
+
+	log_debug("added thing with id %d", t->id);
+
+	return Ok;
+}
+
+Result thingDelete(int id) {
+	if (!THINGS.init) {
+		log_error("Thing manager not initialized!");
+		return Err;
+	}
+
+	khiter_t k;
+	k = kh_get_thing(THINGS.things, id);
+
+	if (k == kh_end(THINGS.things)) {
+		log_warn("Attempted to delete non-existent thing with id %d", id);
+		return Err;
+			}
+
+	kh_del_thing(THINGS.things, k);
+
+	return Ok;
+}
 
 /*
  * ========

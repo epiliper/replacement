@@ -1,6 +1,8 @@
 #ifndef THING
 #define THING
 #include <cglm/cglm.h>
+#include "khash.h"
+#include "log.h"
 
 // openGL handles to render an object
 typedef struct {
@@ -13,6 +15,7 @@ typedef struct hit {
   vec3 normal;
   bool is_hit;
 } Hit;
+
 
 // matrices necessary for rendering
 typedef struct {
@@ -78,7 +81,20 @@ typedef struct {
   void* self;
   uint16_t id;
 } Thing;
-#endif
+
+// map thing IDs to thing pointers
+KHASH_MAP_INIT_INT(thing, Thing*);
+
+typedef struct things {
+	kh_thing_t *things; // map of ID to thing
+	int curid;					// state used to generate thing IDs.
+	bool init;
+} Things;
+
+extern Things THINGS;
+
+void thingsInit();
+Result thingAdd(Thing *t);
 
 Thing* thingLoadFromData(void* data, int type, Body* loc);
 void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
@@ -88,3 +104,5 @@ void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
 
 Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body);
 void aabbMinkowskiDifference(Body* a, Body* b, Body* dest);
+#endif
+
