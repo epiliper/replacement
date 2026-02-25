@@ -12,14 +12,12 @@
 static int success;
 static char shaderLog[512];
 
-enum
-{
+enum {
   LEFT,
   RIGHT,
 };
 
-const char* rSplitOnce(const char* input, const char* delim, int side)
-{
+const char* rSplitOnce(const char* input, const char* delim, int side) {
   int matchlen = 0;
   int delimlen = strlen(delim);
   int found = 0;
@@ -27,31 +25,22 @@ const char* rSplitOnce(const char* input, const char* delim, int side)
 
   int d = delimlen - 1;
 
-  for (i = strlen(input) - 1; i >= 0; i--)
-  {
-    if (input[i] == delim[d])
-    {
+  for (i = strlen(input) - 1; i >= 0; i--) {
+    if (input[i] == delim[d]) {
       d--;
-      if (d < 0)
-      {
+      if (d < 0) {
         found = 1;
         break;
       }
-    }
-    else
-    {
+    } else {
       d = delimlen - 1;
     }
   }
 
-  if (found)
-  {
-    if (side == RIGHT)
-    {
+  if (found) {
+    if (side == RIGHT) {
       return strdup(&input[i + 1]);
-    }
-    else
-    {
+    } else {
       char* ret = malloc(sizeof(char) * (i + 1));
       memcpy(ret, input, sizeof(char) * (i + 1));
       ret[i] = '\0';
@@ -62,8 +51,7 @@ const char* rSplitOnce(const char* input, const char* delim, int side)
   return NULL;
 }
 
-unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile)
-{
+unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile) {
   unsigned int frag, vert;
   const char* src_string;
 
@@ -74,8 +62,7 @@ unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile)
   glCompileShader(vert);
 
   glGetShaderiv(vert, GL_COMPILE_STATUS, &success);
-  if (!success)
-  {
+  if (!success) {
     glGetShaderInfoLog(vert, 512, NULL, shaderLog);
     log_error("Error compiling vertex shader: %s", shaderLog);
   }
@@ -87,8 +74,7 @@ unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile)
   glCompileShader(frag);
 
   glGetShaderiv(frag, GL_COMPILE_STATUS, &success);
-  if (!success)
-  {
+  if (!success) {
     glGetShaderInfoLog(frag, 512, NULL, shaderLog);
     log_error("Error compiling fragment shader: %s", shaderLog);
   }
@@ -102,8 +88,7 @@ unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile)
   glLinkProgram(shader);
 
   glGetProgramiv(shader, GL_LINK_STATUS, &success);
-  if (!success)
-  {
+  if (!success) {
     glGetProgramInfoLog(shader, 512, NULL, shaderLog);
     log_error("SHADER LINKING FAILED:\n%s\n", shaderLog);
   }
@@ -114,8 +99,7 @@ unsigned int shaderFromFileVF(const char* vertfile, const char* fragfile)
   return shader;
 }
 
-unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode)
-{
+unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode) {
   unsigned int frag, vert;
 
   vert = glCreateShader(GL_VERTEX_SHADER);
@@ -123,8 +107,7 @@ unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode)
   glCompileShader(vert);
 
   glGetShaderiv(vert, GL_COMPILE_STATUS, &success);
-  if (!success)
-  {
+  if (!success) {
     glGetShaderInfoLog(vert, 512, NULL, shaderLog);
     log_error("Error compiling vertex shader: %s\n", shaderLog);
   }
@@ -134,8 +117,7 @@ unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode)
   glCompileShader(frag);
 
   glGetShaderiv(frag, GL_COMPILE_STATUS, &success);
-  if (!success)
-  {
+  if (!success) {
     glGetShaderInfoLog(frag, 512, NULL, shaderLog);
     log_error("Error compiling frag shader: %s\n", shaderLog);
   }
@@ -147,8 +129,7 @@ unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode)
   glLinkProgram(shader);
 
   glGetProgramiv(shader, GL_LINK_STATUS, &success);
-  if (!success)
-  {
+  if (!success) {
     glGetProgramInfoLog(shader, 512, NULL, shaderLog);
     log_error("SHADER LINKING FAILED:\n%s\n", shaderLog);
   }
@@ -159,15 +140,13 @@ unsigned int shaderFromCharVF(const char* vertcode, const char* fragcode)
   return shader;
 }
 
-void shaderSetVec4(unsigned int shader, const char* uni, vec4 dat)
-{
+void shaderSetVec4(unsigned int shader, const char* uni, vec4 dat) {
   GLint loc = glGetUniformLocation(shader, uni);
   /* glUseProgram(shader); */
   glUniform4fv(loc, 1, dat);
 }
 
-void shaderSetMat4(unsigned int shader, const char* uni, mat4 dat)
-{
+void shaderSetMat4(unsigned int shader, const char* uni, mat4 dat) {
   GLint loc = glGetUniformLocation(shader, uni);
   /* if (loc == -1) { */
   /*   printf("Failed to find uniform %s\n", uni); */
@@ -176,8 +155,7 @@ void shaderSetMat4(unsigned int shader, const char* uni, mat4 dat)
   glUniformMatrix4fv(loc, 1, GL_FALSE, (float*)dat);
 }
 
-void shaderSetVec3(unsigned int shader, const char* uni, vec3 dat)
-{
+void shaderSetVec3(unsigned int shader, const char* uni, vec3 dat) {
   GLint loc = glGetUniformLocation(shader, uni);
   /* if (loc == -1) { */
   /*   printf("Failed to find uniform %s\n", uni); */
@@ -186,8 +164,7 @@ void shaderSetVec3(unsigned int shader, const char* uni, vec3 dat)
   glUniform3fv(loc, 1, dat);
 }
 
-void shaderSetFloat(unsigned int shader, const char* uni, float dat)
-{
+void shaderSetFloat(unsigned int shader, const char* uni, float dat) {
   GLint loc = glGetUniformLocation(shader, uni);
   /* if (loc == -1) { */
   /*   printf("Failed to find uniform %s\n", uni); */
@@ -197,8 +174,7 @@ void shaderSetFloat(unsigned int shader, const char* uni, float dat)
 }
 
 void shaderSetUnsignedInt(unsigned int shader, const char* uni,
-                          unsigned int dat)
-{
+                          unsigned int dat) {
   GLint loc = glGetUniformLocation(shader, uni);
   /* if (loc == -1) { */
   /*   printf("Failed to find uniform %s\n", uni); */
@@ -207,8 +183,7 @@ void shaderSetUnsignedInt(unsigned int shader, const char* uni,
   glUniform1ui(loc, dat);
 }
 
-void shaderSetInt(unsigned int shader, const char* uni, int dat)
-{
+void shaderSetInt(unsigned int shader, const char* uni, int dat) {
   GLint loc = glGetUniformLocation(shader, uni);
   /* if (loc == -1) { */
   /*   printf("Failed to find uniform %s\n", uni); */
@@ -223,11 +198,9 @@ void shaderSetInt(unsigned int shader, const char* uni, int dat)
  * =====
  */
 
-const char* readFileToEnd(const char* path, int* n)
-{
+const char* readFileToEnd(const char* path, int* n) {
   FILE* f = fopen(path, "rb");  // Use "rb" for binary mode
-  if (!f)
-  {
+  if (!f) {
     log_error("Failed to open: %s\n", path);
     *n = 0;
     return NULL;
@@ -238,15 +211,13 @@ const char* readFileToEnd(const char* path, int* n)
   rewind(f);
 
   char* ret = malloc(*n + 1);
-  if (!ret)
-  {
+  if (!ret) {
     fclose(f);
     return NULL;
   }
 
   size_t read = fread(ret, 1, *n, f);
-  if (read != *n)
-  {
+  if (read != *n) {
     log_error("Partial read of %s: got %zu, expected %d\n", path, read, *n);
   }
 

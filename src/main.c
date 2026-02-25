@@ -7,14 +7,15 @@
 #include "glad.h"
 #include "GLFW/glfw3.h"
 #include "khash.h"
-#include "thing.h"
-#include "utils.h"
 #include "time.h"
-#include "log.h"
 
 #include "float.h"
 
+#include "utils.h"
 #include "mesh.h"
+#include "log.h"
+#include "thing.h"
+#include "physics.h"
 
 #include "ft2build.h"
 #include "cglm/cglm.h"
@@ -35,27 +36,23 @@
  * - We need to iterate over both the above groups in one loop.
  */
 
-typedef struct Mouse
-{
+typedef struct Mouse {
   double xpos, ypos;
 } Mouse;
 
 Mouse MOUSE;
 
-void mousePosUpdate(void* window, double xpos, double ypos)
-{
+void mousePosUpdate(void* window, double xpos, double ypos) {
   /* log_debug("%f %f", MOUSE.xpos, MOUSE.ypos); */
   MOUSE.xpos = xpos;
   MOUSE.ypos = ypos;
 }
 
-void mouseInit(void* window)
-{
+void mouseInit(void* window) {
   glfwSetCursorPosCallback(window, (GLFWcursorposfun)mousePosUpdate);
 }
 
-enum
-{
+enum {
   K_MOVE_FORW,
   K_MOVE_LEFT,
   K_MOVE_RIGHT,
@@ -73,8 +70,7 @@ enum
   K_BINDS,  // number of binds
 };
 
-enum
-{
+enum {
   K_MOUSE_LEFT,
   K_MOUSE_MIDDLE,
   K_MOUSE_RIGHT,
@@ -84,8 +80,7 @@ enum
 
 // default keybindings
 
-typedef struct
-{
+typedef struct {
   int callback;
   int key;
   int pressed;
@@ -94,8 +89,7 @@ typedef struct
 #define KEYBIND(_key, _callback) \
   {.key = _key, .callback = _callback, .pressed = 0}
 
-enum
-{
+enum {
   NO_CALLBACK,
   CALLBACK_TOGGLE,
 };
@@ -132,18 +126,15 @@ Keybinding Keybinds[K_BINDS] = {
 // Check for key presses and respect callbacks.
 // TODO: we check every single entry on a keypress. Create a mapping between key
 // and action to save checks.
-void keybindingsPoll(void* window, int key, int scancode, int action, int mods)
-{
+void keybindingsPoll(void* window, int key, int scancode, int action,
+                     int mods) {
   int k, c;
-  for (int i = 0; i < K_BINDS; i++)
-  {
+  for (int i = 0; i < K_BINDS; i++) {
     k = Keybinds[i].key;
     c = Keybinds[i].callback;
 
-    if (key == k)
-    {
-      switch (c)
-      {
+    if (key == k) {
+      switch (c) {
         case NO_CALLBACK:
           Keybinds[i].pressed = (action == GLFW_PRESS || action == GLFW_REPEAT);
           break;
@@ -156,18 +147,14 @@ void keybindingsPoll(void* window, int key, int scancode, int action, int mods)
   }
 }
 
-void mousebindingsPoll(void* window, int key, int action, int mods)
-{
+void mousebindingsPoll(void* window, int key, int action, int mods) {
   int k, c;
-  for (int i = 0; i < K_MOUSE_BINDS; i++)
-  {
+  for (int i = 0; i < K_MOUSE_BINDS; i++) {
     k = Mousebinds[i].key;
     c = Mousebinds[i].callback;
 
-    if (key == k)
-    {
-      switch (c)
-      {
+    if (key == k) {
+      switch (c) {
         case NO_CALLBACK:
           Mousebinds[i].pressed =
               (action == GLFW_PRESS || action == GLFW_REPEAT);
@@ -182,8 +169,7 @@ void mousebindingsPoll(void* window, int key, int action, int mods)
 }
 
 // Attach keybindings to window.
-void keybindingsInit(void* window)
-{
+void keybindingsInit(void* window) {
   glfwSetKeyCallback(window, (GLFWkeyfun)keybindingsPoll);
   glfwSetMouseButtonCallback(window, (GLFWmousebuttonfun)(mousebindingsPoll));
 }
@@ -196,8 +182,7 @@ void keybindingsInit(void* window)
 
 static int window_created = 0;
 
-typedef struct
-{
+typedef struct {
   GLFWwindow* window;
   GLFWmonitor* monitor;
   int resy, resx;
@@ -221,17 +206,14 @@ Window WINDOW;
 #define GL_V_MAJOR 3
 #define GL_V_MINOR 3
 
-static GLFWwindow* windowCreateFallback()
-{
+static GLFWwindow* windowCreateFallback() {
   return glfwCreateWindow(WIN_FALLBACK_X, WIN_FALLBACK_Y, TITLE, NULL, NULL);
 }
 
 // set up opengl and glad contexts and launch a default fullscreen window,
 // intended to only be run during the lifetime of the application.
-Result windowInit()
-{
-  if (!glfwInit())
-  {
+Result windowInit() {
+  if (!glfwInit()) {
     log_warn("Failed to initialize GLFW!");
     return Err;
   }
@@ -243,22 +225,19 @@ Result windowInit()
 
   WINDOW.monitor = glfwGetPrimaryMonitor();
 
-  if (!WINDOW.monitor || (mode = glfwGetVideoMode(WINDOW.monitor)) == NULL)
-  {
+  if (!WINDOW.monitor || (mode = glfwGetVideoMode(WINDOW.monitor)) == NULL) {
     log_warn(
         "Unable to get video mode information. Setting to fallback resolution "
         "of %d x %d...",
         WIN_FALLBACK_X, WIN_FALLBACK_Y);
     WINDOW.window = windowCreateFallback();
-  }
-  else
-  {
+  } else {
     WINDOW.window = glfwCreateWindow(mode->width, mode->height, TITLE,
                                      WINDOW.monitor, NULL);
+    /* WINDOW.window = windowCreateFallback(); */
   }
 
-  if (!WINDOW.window)
-  {
+  if (!WINDOW.window) {
     log_error("Unable to create GLFW window!");
     return Err;
   }
@@ -266,14 +245,12 @@ Result windowInit()
   glfwMakeContextCurrent(WINDOW.window);
   glfwGetFramebufferSize(WINDOW.window, &WINDOW.resx, &WINDOW.resy);
 
-  if (WINDOW.resx == 0)
-  {
+  if (WINDOW.resx == 0) {
     log_error("failed to query screen coordinates");
     return Err;
   }
 
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-  {
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     log_error("Failed to initialize GLAD!");
     return Err;
   }
@@ -288,8 +265,7 @@ Result windowInit()
 }
 
 // Prepare for rendering
-void windowNewFrame()
-{
+void windowNewFrame() {
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -312,14 +288,12 @@ void windowTerminate() { glfwTerminate(); }
  * =======
  */
 
-enum CameraMode
-{
+enum CameraMode {
   CAM_TOPDOWN,
   CAM_FPS,
 };
 
-typedef struct PerspectiveCamera
-{
+typedef struct PerspectiveCamera {
   float pitch, yaw;
   bool firstInt;
   double lastx, lasty;
@@ -340,7 +314,7 @@ static vec3 last_pos;
    .firstInt = true,       \
    .lastx = 0,             \
    .lasty = 0,             \
-   .pos = {0, 1, 3},       \
+   .pos = {0, 4, 3},       \
    .direction = {0, 0, 0}, \
    .up = {0, 0, 0},        \
    .right = {0, 0, 0},     \
@@ -352,10 +326,8 @@ static vec3 last_pos;
    .mode = CAM_FPS,        \
    .sensitivity = 0.1}
 
-void pCamToggleMode(int width, int height)
-{
-  if (pCam.mode == CAM_FPS)
-  {
+void pCamToggleMode(int width, int height) {
+  if (pCam.mode == CAM_FPS) {
     pCam.mode = CAM_TOPDOWN;
 
     last_pitch = pCam.pitch;
@@ -363,17 +335,14 @@ void pCamToggleMode(int width, int height)
 
     glm_vec3_copy(pCam.pos, last_pos);
     pCam.pos[1] = 10;
-  }
-  else
-  {
+  } else {
     pCam.mode = CAM_FPS;
     glm_vec3_copy(last_pos, pCam.pos);
     pCam.pitch = last_pitch;
   };
 }
 
-void pCamUpdateView(int width, int height)
-{
+void pCamUpdateView(int width, int height) {
   pCam.front[0] = cos(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
   pCam.front[1] = sin(glm_rad(pCam.pitch));
   pCam.front[2] = sin(glm_rad(pCam.yaw)) * cos(glm_rad(pCam.pitch));
@@ -389,35 +358,29 @@ void pCamUpdateView(int width, int height)
   glm_lookat(pCam.pos, pCam.direction, pCam.up, pCam.view);
 }
 
-void pCamUpdateProj(int width, int height)
-{
+void pCamUpdateProj(int width, int height) {
   glm_perspective(glm_rad(pCam.fov), (float)width / height, 0.1, 1000,
                   pCam.proj);
 }
 
-void pCamUpdateOrtho(int width, int height)
-{
+void pCamUpdateOrtho(int width, int height) {
   glm_ortho(0, width, 0, height, 0.0, 100, pCam.ortho);
 }
 
-void pCamOnFovChange(float fov)
-{
+void pCamOnFovChange(float fov) {
   pCam.fov = fov;
   pCamUpdateProj(WINDOW.resx, WINDOW.resy);
   pCamUpdateView(WINDOW.resx, WINDOW.resy);
 }
 
-void pCamOnResolutionChange(int width, int height)
-{
+void pCamOnResolutionChange(int width, int height) {
   pCamUpdateProj(width, height);
   pCamUpdateView(width, height);
   pCamUpdateOrtho(width, height);
 }
 
-void pCamPan(double xpos, double ypos)
-{
-  if (pCam.firstInt)
-  {
+void pCamPan(double xpos, double ypos) {
+  if (pCam.firstInt) {
     pCam.lastx = xpos;
     pCam.lasty = ypos;
     pCam.firstInt = false;
@@ -438,20 +401,17 @@ void pCamPan(double xpos, double ypos)
   pCamUpdateView(WINDOW.resx, WINDOW.resy);
 }
 
-enum
-{
+enum {
   CMOVE_LEFT,
   CMOVE_RIGHT,
   CMOVE_FORW,
   CMOVE_BACK,
 };
 
-void pCamMove(int direction)
-{
+void pCamMove(int direction) {
   float velocity = 0.1;
   vec3 movement = {0};
-  switch (direction)
-  {
+  switch (direction) {
     case CMOVE_FORW:
       glm_vec3_add(movement, (vec3){pCam.front[0], 0.0, pCam.front[2]},
                    movement);
@@ -482,22 +442,20 @@ void pCamMove(int direction)
 
 #define NANOS_PER_SECOND 1000000000
 
-typedef struct
-{
-  uint64_t time, last_time, delta, second_frames, fps, last_second;
+typedef struct {
+  double time, last_time, second_frames, fps, last_second;
+  double delta;
   struct timespec s;
 } Timer;
 
 static Timer TIMER = {0};
 
-uint64_t timeGetNanoseconds()
-{
+uint64_t timeGetNanoseconds() {
   clock_gettime(CLOCK_REALTIME, &TIMER.s);
   return TIMER.s.tv_nsec + (NANOS_PER_SECOND * TIMER.s.tv_sec);
 }
 
-void timeInit()
-{
+void timeInit() {
   uint64_t t = timeGetNanoseconds();
   TIMER.time = t;
   TIMER.last_time = t;
@@ -507,38 +465,33 @@ void timeInit()
   TIMER.last_second = 0;
 }
 
-void timeUpdate()
-{
+void timeUpdate() {
   TIMER.second_frames++;
   TIMER.time = timeGetNanoseconds();
-  TIMER.delta = TIMER.time - TIMER.last_time;
+  TIMER.delta = (TIMER.time - TIMER.last_time) / 1e9f;
   TIMER.last_time = TIMER.time;
 
-  if (TIMER.time - TIMER.last_second >= NANOS_PER_SECOND)
-  {
+  if (TIMER.time - TIMER.last_second >= NANOS_PER_SECOND) {
     TIMER.fps = TIMER.second_frames;
     TIMER.second_frames = 0;
     TIMER.last_second = TIMER.time;
-    log_debug("FPS: %lu", TIMER.fps);
+    log_debug("FPS: %f", TIMER.fps);
   }
 }
 
 #define FRICTION_COEFFICIENT 0.85
 
-void attemptMove(vec3 movement, Body* self, Body* colliders, int n_colliders)
-{
+void attemptMove(vec3 movement, Body* self, Body* colliders, int n_colliders) {
   glm_vec3_scale(movement, FRICTION_COEFFICIENT, movement);
 
   Body other = {0};
-  for (int i = 0; i < n_colliders; i++)
-  {
+  for (int i = 0; i < n_colliders; i++) {
     glm_vec3_copy(colliders[i].pos, other.pos);
     glm_vec3_add(self->halfsize, colliders[i].halfsize, other.halfsize);
 
     Hit hit = aabbIntersectRay(self->pos, movement, &other);
 
-    if (hit.is_hit)
-    {
+    if (hit.is_hit) {
       log_debug("COLLISION!!!!!!!!");
     }
   }
@@ -554,16 +507,14 @@ void attemptMove(vec3 movement, Body* self, Body* colliders, int n_colliders)
  */
 
 void getNormalizedDeviceCoordinates(int resX, int resY, float mouseX,
-                                    float mouseY, vec2 dest)
-{
+                                    float mouseY, vec2 dest) {
   float newx = (2.0f * mouseX) / (float)resX - 1.0f;
   float newy = 1.0f - 2.0f * (mouseY / (float)resY);
   dest[0] = newx;
   dest[1] = newy;
 };
 
-void clipCoordsToEyeSpace(vec4 clip_coords, mat4 projection, vec4 dest)
-{
+void clipCoordsToEyeSpace(vec4 clip_coords, mat4 projection, vec4 dest) {
   mat4 inv;
   glm_mat4_inv(projection, inv);
 
@@ -578,8 +529,7 @@ void clipCoordsToEyeSpace(vec4 clip_coords, mat4 projection, vec4 dest)
 }
 
 /// Reverse the eye coordinates to world space
-void eyeCoordsToWorldSpace(vec4 eye_coords, mat4 view, vec3 posdest)
-{
+void eyeCoordsToWorldSpace(vec4 eye_coords, mat4 view, vec3 posdest) {
   mat4 inv;
   glm_mat4_inv(view, inv);
 
@@ -592,8 +542,7 @@ void eyeCoordsToWorldSpace(vec4 eye_coords, mat4 view, vec3 posdest)
 }
 
 void calculateRayDirection(int width, int height, float x, float y,
-                           mat4 projection, mat4 view, vec3 posdest)
-{
+                           mat4 projection, mat4 view, vec3 posdest) {
   // normalized device coordinates
   vec2 normalized;
   getNormalizedDeviceCoordinates(width, height, x, y, normalized);
@@ -619,57 +568,50 @@ void calculateRayDirection(int width, int height, float x, float y,
  * =======
  */
 
-static Body playerBody = {
-    .height = 1,
-    .width = 1,
-    .halfsize = 1,
-    .pos = {0, 1, 3},
-    .rot = {0, 0, 0},
-};
+static Body playerBody = {.height = 1,
+                          .width = 1,
+                          .halfsize = 1,
+                          .pos = {0, 4, 3},
+                          .rot = {0, 0, 0},
+                          .is_dynamic = true};
 
-void playerUpdate(Body* colliders, int n_colliders)
-{
+/* void playerUpdate(Body* colliders, int n_colliders) { */
+void playerUpdate() {
   vec3 movement = {0, 0, 0};
   float move_speed = 0.4;
   int moved = 0;
 
-  if (KPRESSED(K_MOVE_FORW))
-  {
+  if (KPRESSED(K_MOVE_FORW)) {
     glm_vec3_add(movement, (vec3){pCam.front[0], 0, pCam.front[2]}, movement);
     moved = 1;
   }
-  if (KPRESSED(K_MOVE_LEFT))
-  {
+  if (KPRESSED(K_MOVE_LEFT)) {
     glm_vec3_sub(movement, (vec3){pCam.right[0], 0, pCam.right[2]}, movement);
     moved = 1;
   }
-  if (KPRESSED(K_MOVE_RIGHT))
-  {
+  if (KPRESSED(K_MOVE_RIGHT)) {
     glm_vec3_add(movement, (vec3){pCam.right[0], 0, pCam.right[2]}, movement);
     moved = 1;
   }
-  if (KPRESSED(K_MOVE_BACK))
-  {
+  if (KPRESSED(K_MOVE_BACK)) {
     glm_vec3_sub(movement, (vec3){pCam.front[0], 0, pCam.front[2]}, movement);
     moved = 1;
   }
 
-  /* glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement); */
-
   glm_normalize(movement);
   glm_vec3_scale(movement, move_speed, movement);
+  glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement);
+  glm_vec3_copy(movement, playerBody.velocity);
 
-  attemptMove(movement, &playerBody, colliders, n_colliders);
-  glm_vec3_copy(playerBody.pos, pCam.pos);
+  /* attemptMove(movement, &playerBody, colliders, n_colliders); */
+  /* glm_vec3_copy(playerBody.pos, pCam.pos); */
 
-  if (KPRESSED(K_EDIT))
-  {
+  if (KPRESSED(K_EDIT)) {
     pCamToggleMode(WINDOW.resx, WINDOW.resy);
     KRELEASE(K_EDIT);
   }
 
-  if (MPRESSED(K_MOUSE_LEFT))
-  {
+  if (MPRESSED(K_MOUSE_LEFT)) {
     printf("Pressed left mouse");
     vec3 dest;
     GET_MOUSE_WORLD_POS(dest);
@@ -683,8 +625,7 @@ void playerUpdate(Body* colliders, int n_colliders)
  * @TEXT
  * =====
  */
-typedef struct Character
-{
+typedef struct Character {
   int textureid;
   vec2 size;
   vec2 bearing;
@@ -708,18 +649,15 @@ float TEXT_VERTICES[] = {
 };
 // clang-format on
 
-Result textInit()
-{
+Result textInit() {
   FT_Library ft;
-  if (FT_Init_FreeType(&ft))
-  {
+  if (FT_Init_FreeType(&ft)) {
     log_error("Failed to initialize freetype2!");
     return Err;
   }
 
   FT_Face face;
-  if (FT_New_Face(ft, "fonts/roboto.ttf", 0, &face))
-  {
+  if (FT_New_Face(ft, "fonts/roboto.ttf", 0, &face)) {
     log_error("Failed to initialize font!");
     return Err;
   }
@@ -737,16 +675,13 @@ Result textInit()
   GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   GL glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  for (unsigned int c = 0; c < 128; c++)
-  {
-    if (FT_Load_Char(face, c, FT_LOAD_RENDER))
-    {
+  for (unsigned int c = 0; c < 128; c++) {
+    if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
       log_error("Failed to load char %d", c);
       return Err;
     }
 
-    if (face->glyph->bitmap.buffer)
-    {
+    if (face->glyph->bitmap.buffer) {
       GL glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, (int)c,
                          face->glyph->bitmap.width, face->glyph->bitmap.rows, 1,
                          GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
@@ -767,8 +702,7 @@ Result textInit()
   return Ok;
 }
 
-RenderInfo renderTextInit()
-{
+RenderInfo renderTextInit() {
   RenderInfo ri;
   unsigned int vbo;
 
@@ -792,10 +726,8 @@ RenderInfo renderTextInit()
   return ri;
 }
 
-void _renderText(int length, unsigned int shader)
-{
-  if (length)
-  {
+void _renderText(int length, unsigned int shader) {
+  if (length) {
     GL glUniformMatrix4fv(glGetUniformLocation(shader, "transforms"), length,
                           GL_FALSE, &charMats[0][0][0]);
 
@@ -806,8 +738,7 @@ void _renderText(int length, unsigned int shader)
 }
 
 void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
-                vec3 color, int fontpx)
-{
+                vec3 color, int fontpx) {
   scale = scale * fontpx / 256.0f;
   float copyX = x;
 
@@ -821,18 +752,15 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
   int workingIndex = 0;
   int n = strlen(text);
   Character cur;
-  for (int i = 0; i < n; i++)
-  {
+  for (int i = 0; i < n; i++) {
     cur = charMap[text[i]];
 
-    if (text[i] == '\n')
-    {
+    if (text[i] == '\n') {
       y -= cur.size[1] * 1.3 * scale;
       x = copyX;
       continue;
     }
-    if (text[i] == ' ')
-    {
+    if (text[i] == ' ') {
       x += (cur.advance >> 6) * scale;
       continue;
     }
@@ -850,8 +778,7 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
     x += (cur.advance >> 6) * scale;
     workingIndex++;
 
-    if (workingIndex >= CHAR_RENDER_BATCH_SIZE)
-    {
+    if (workingIndex >= CHAR_RENDER_BATCH_SIZE) {
       _renderText(workingIndex, ri.shader);
       workingIndex = 0;
     }
@@ -899,8 +826,7 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
 
 KHASH_MAP_INIT_INT(ri, RenderInfo);
 
-typedef struct Renderer
-{
+typedef struct Renderer {
   kh_ri_t* renderinfos;  // map render info to int id
   int curid;             // state used to generate IDs for new things
   bool init;
@@ -908,10 +834,8 @@ typedef struct Renderer
 
 static Renderer RENDERER = {.renderinfos = NULL, .curid = -1, .init = false};
 
-void rendererInitialize()
-{
-  if (RENDERER.init)
-  {
+void rendererInitialize() {
+  if (RENDERER.init) {
     return;
   }
 
@@ -921,10 +845,8 @@ void rendererInitialize()
   RENDERER.init = true;
 };
 
-Result rendererAddThing(Thing* t)
-{
-  if (!RENDERER.init)
-  {
+Result rendererAddThing(Thing* t) {
+  if (!RENDERER.init) {
     log_error("Renderer not initialized!");
     return Err;
   }
@@ -935,35 +857,32 @@ Result rendererAddThing(Thing* t)
 
   // Create renderinfo for this item if we haven't already.
   if ((k = kh_get_ri(RENDERER.renderinfos, t->type)) !=
-      kh_end(RENDERER.renderinfos))
-  {
+      kh_end(RENDERER.renderinfos)) {
     t->render.ri = kh_val(RENDERER.renderinfos, k);
     log_debug("Already initialized render info for object of type %d: ",
               t->type);
+    return Ok;
   }
-  else
-  {
-    ri = (t->render.rinit)();
-    k = kh_put_ri(RENDERER.renderinfos, t->type, &ret);
 
-    kh_value(RENDERER.renderinfos, k) = ri;
-    t->render.ri = ri;
-  }
+  ri = (t->render.rinit)();
+  k = kh_put_ri(RENDERER.renderinfos, t->type, &ret);
+
+  kh_value(RENDERER.renderinfos, k) = ri;
+  t->render.ri = ri;
   return Ok;
 }
 
-Result rendererRender(kh_thing_t* things)
-{
+Result rendererRender(kh_thing_t* things) {
   khiter_t k;
   Thing* t;
   RenderInfo ri;
 
-  for (khint_t i = kh_begin(things); i != kh_end(things); ++i)
-  {
+  for (khint_t i = kh_begin(things); i != kh_end(things); ++i) {
     if (!kh_exist(things, i)) continue;
 
     t = kh_val(things, i);
-    // render
+    if (!t->render.rfunc) continue;
+
     (t->render.rfunc)(t->self, &t->loc, t->render.ri,
                       (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view},
                       NULL);
@@ -971,8 +890,7 @@ Result rendererRender(kh_thing_t* things)
     // render bounding box as well.
     if (t->type == THING_TRIANGLE &&
         (k = kh_get_ri(RENDERER.renderinfos, THING_CUBE)) !=
-            kh_end(RENDERER.renderinfos))
-    {
+            kh_end(RENDERER.renderinfos)) {
       ri = kh_val(RENDERER.renderinfos, k);
 
       renderAABB(&(CubeThing){.color = {1, 0, 0, 0.1}}, &t->loc, ri,
@@ -989,14 +907,12 @@ Result rendererRender(kh_thing_t* things)
  * =====
  */
 
-int main(void)
-{
+int main(void) {
   LOGGER.out = stderr;
   pCam = (PerspectiveCamera)pCamInit;
 
   WINDOW = (Window)WINDOW_INIT;
-  if (is_err(windowInit()))
-  {
+  if (is_err(windowInit())) {
     return 1;
   }
 
@@ -1014,15 +930,23 @@ int main(void)
   SquareThing floor = {.color = {0, 0, 1, 0.2}};
   CubeThing cube = {.color = {0, 0, 0, 0}};
 
-  Body floorbody = {
-      .pos = {0, 0, 0}, .width = 100, .height = 100, .rot = {90, 0, 0}};
+  Body floorbody = {.pos = {0, 0, 0},
+                    .width = 100,
+                    .height = 100,
+                    .rot = {90, 0, 0},
+                    .is_dynamic = false,
+                    .velocity = {0, 0, 0}};
 
-  Body tbody = {.pos = {0, 1, -5}, .height = 2, .width = 2, .rot = {0, 0, 0}};
+  Body tbody = {.pos = {0, 1, -5},
+                .height = 2,
+                .width = 2,
+                .rot = {0, 0, 0},
+                .is_dynamic = false,
+                .velocity = {0, 0, 0}};
 
   Model backpack = {0};
 
-  if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj")))
-  {
+  if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj"))) {
     return 1;
   };
 
@@ -1034,6 +958,7 @@ int main(void)
   Thing* floorthing = thingLoadFromData(&floor, THING_SQUARE, &floorbody);
   Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
   Thing* cubething = thingLoadFromData(&cube, THING_CUBE, &tbody);
+  Thing* playerthing = thingLoadFromData(NULL, THING_PLAYER, &playerBody);
 
   timeInit();
   rendererInitialize();
@@ -1050,17 +975,19 @@ int main(void)
   thingAdd(floorthing);
   thingAdd(bpmodel);
   thingAdd(cubething);
+  thingAdd(playerthing);
 
   log_debug("======================");
   log_debug("BEGIN MAIN RENDER LOOP");
   log_debug("======================");
 
-  while (!windowShouldClose())
-  {
+  while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
-    playerUpdate(&tbody, 1);
+    playerUpdate();
+    physicsUpdate(THINGS.things, TIMER.delta);
 
+    glm_vec3_copy(playerBody.pos, pCam.pos);
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
     rendererRender(THINGS.things);

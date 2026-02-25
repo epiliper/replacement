@@ -9,24 +9,21 @@
 #include <stdio.h>
 #include <glad.h>
 
-typedef enum Result
-{
+typedef enum Result {
   Ok,
   Err,
 } Result;
 
 #define is_err(e) e == Err
 
-enum logLevel
-{
+enum logLevel {
   LOG_DEBUG,
   LOG_INFO,
   LOG_WARN,
   LOG_ERROR,
 };
 
-typedef struct Logger
-{
+typedef struct Logger {
   char tbuf[16];
   FILE* out;
 } Logger;

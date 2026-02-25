@@ -14,17 +14,14 @@
 Things THINGS = {0};
 
 // Initialize the thing manager
-void thingsInit()
-{
+void thingsInit() {
   THINGS.things = kh_init_thing();
   THINGS.curid = 0;
   THINGS.init = 1;
 }
 
-Result thingAdd(Thing* t)
-{
-  if (!THINGS.init)
-  {
+Result thingAdd(Thing* t) {
+  if (!THINGS.init) {
     log_error("Thing manager not initialized!");
     return Err;
   }
@@ -32,8 +29,7 @@ Result thingAdd(Thing* t)
   int ret = 0;
   khiter_t k;
 
-  do
-  {
+  do {
     t->id = THINGS.curid++;
   } while ((k = kh_get_thing(THINGS.things, t->id)) != kh_end(THINGS.things));
 
@@ -45,10 +41,8 @@ Result thingAdd(Thing* t)
   return Ok;
 }
 
-Result thingDelete(int id)
-{
-  if (!THINGS.init)
-  {
+Result thingDelete(int id) {
+  if (!THINGS.init) {
     log_error("Thing manager not initialized!");
     return Err;
   }
@@ -56,8 +50,7 @@ Result thingDelete(int id)
   khiter_t k;
   k = kh_get_thing(THINGS.things, id);
 
-  if (k == kh_end(THINGS.things))
-  {
+  if (k == kh_end(THINGS.things)) {
     log_warn("Attempted to delete non-existent thing with id %d", id);
     return Err;
   }
@@ -210,8 +203,7 @@ const char* triangleFrag =
     "fragColor = color;\n"
     "}";
 
-RenderInfo renderInitTriangle()
-{
+RenderInfo renderInitTriangle() {
   RenderInfo ret = {0};
 
   unsigned int vao, vbo;
@@ -234,8 +226,7 @@ RenderInfo renderInitTriangle()
   return ret;
 }
 
-RenderInfo renderInitSquare()
-{
+RenderInfo renderInitSquare() {
   RenderInfo ri;
 
   unsigned int vbo, ebo;
@@ -261,8 +252,7 @@ RenderInfo renderInitSquare()
   return ri;
 };
 
-RenderInfo renderInitCube()
-{
+RenderInfo renderInitCube() {
   RenderInfo ri;
   unsigned int vbo, ebo;
   GL glGenVertexArrays(1, &ri.vao);
@@ -287,8 +277,7 @@ RenderInfo renderInitCube()
 }
 
 void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
-                RenderMods* mods)
-{
+                RenderMods* mods) {
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
@@ -310,8 +299,7 @@ void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
 }
 
 void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
-                RenderMods* mods)
-{
+                RenderMods* mods) {
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
@@ -336,8 +324,7 @@ void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
 };
 
 void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
-                    RenderMatrices rm, RenderMods* mods)
-{
+                    RenderMatrices rm, RenderMods* mods) {
   GL glBindVertexArray(ri.vao);
   GL glUseProgram(ri.shader);
   mat4 model;
@@ -359,8 +346,7 @@ void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
 }
 
 void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
-                  RenderMatrices rm, RenderMods* mods)
-{
+                  RenderMatrices rm, RenderMods* mods) {
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
@@ -381,19 +367,20 @@ void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
   GL glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-Thing* thingLoadFromData(void* data, int type, Body* loc)
-{
+Thing* thingLoadFromData(void* data, int type, Body* loc) {
   Renderable render;
   Thing* dest = malloc(sizeof(Thing));
 
-  if (!dest)
-  {
+  if (!dest) {
     log_error("failed to allocate memory for thing with type: %d", type);
     return NULL;
   }
 
-  switch (type)
-  {
+  switch (type) {
+    case THING_PLAYER:
+      render.rfunc = NULL;
+      render.rinit = NULL;
+      break;
     case THING_TRIANGLE:
       render.rfunc = (RenderFunc)renderTriangle;
       render.rinit = (RenderInitFunc)renderInitTriangle;
