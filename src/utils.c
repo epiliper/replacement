@@ -18,7 +18,6 @@ enum {
 };
 
 const char* rSplitOnce(const char* input, const char* delim, int side) {
-  int matchlen = 0;
   int delimlen = strlen(delim);
   int found = 0;
   int i = 0;

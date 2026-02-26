@@ -35,10 +35,10 @@ void aabbNew(vec3* vertices, int n, Body* body) {
 }
 
 bool aabbCollide(Body* a, Body* b) {
-  Body* mink;
+  Body mink = {0};
   vec3 min, max;
-  aabbMinkowskiDifference(a, b, mink);
-  aabbMinMax(mink, min, max);
+  aabbMinkowskiDifference(a, b, &mink);
+  aabbMinMax(&mink, min, max);
 
   return (min[0] <= 0 && max[0] <= 0 && min[1] <= 0 && max[1] >= 0 &&
           min[2] <= 0 && max[2] >= 0);

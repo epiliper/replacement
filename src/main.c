@@ -180,8 +180,6 @@ void keybindingsInit(void* window) {
  * ===========================
  */
 
-static int window_created = 0;
-
 typedef struct {
   GLFWwindow* window;
   GLFWmonitor* monitor;
@@ -576,7 +574,7 @@ void calculateRayDirection(int width, int height, float x, float y,
 
 static Body playerBody = {.height = 1,
                           .width = 1,
-                          .halfsize = 1,
+                          .halfsize = {1},
                           .pos = {0, 1, 5},
                           .rot = {0, 0, 0},
                           .is_dynamic = true};
@@ -585,23 +583,18 @@ static Body playerBody = {.height = 1,
 void playerUpdate(Body* player_body) {
   vec3 movement = {0, 0, 0};
   float move_speed = 6;
-  int moved = 0;
 
   if (KPRESSED(K_MOVE_FORW)) {
     glm_vec3_add(movement, (vec3){pCam.front[0], 0, pCam.front[2]}, movement);
-    moved = 1;
   }
   if (KPRESSED(K_MOVE_LEFT)) {
     glm_vec3_sub(movement, (vec3){pCam.right[0], 0, pCam.right[2]}, movement);
-    moved = 1;
   }
   if (KPRESSED(K_MOVE_RIGHT)) {
     glm_vec3_add(movement, (vec3){pCam.right[0], 0, pCam.right[2]}, movement);
-    moved = 1;
   }
   if (KPRESSED(K_MOVE_BACK)) {
     glm_vec3_sub(movement, (vec3){pCam.front[0], 0, pCam.front[2]}, movement);
-    moved = 1;
   }
 
   glm_normalize(movement);
@@ -643,7 +636,7 @@ static Character charMap[128];
 
 #define CHAR_RENDER_BATCH_SIZE 64
 
-static mat4 charMats[CHAR_RENDER_BATCH_SIZE] = {1};
+static mat4 charMats[CHAR_RENDER_BATCH_SIZE] = {{{1}}};
 static int charsToRender[CHAR_RENDER_BATCH_SIZE] = {0};
 
 // clang-format off
@@ -759,7 +752,7 @@ void renderText(RenderInfo ri, const char* text, float x, float y, float scale,
   int n = strlen(text);
   Character cur;
   for (int i = 0; i < n; i++) {
-    cur = charMap[text[i]];
+    cur = charMap[(int)text[i]];
 
     if (text[i] == '\n') {
       y -= cur.size[1] * 1.3 * scale;
@@ -932,7 +925,7 @@ int main(void) {
   modelLoaderInit();
 
   TriangleThing t = {.color = {0, 0, 1, 1}};
-  SquareThing s = {.color = {0, 0, 1, 0.2}};
+  /* SquareThing s = {.color = {0, 0, 1, 0.2}}; */
   SquareThing floor = {.color = {0, 0, 1, 0.2}};
   CubeThing cube = {.color = {0, 0, 0, 0}};
 
