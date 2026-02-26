@@ -367,7 +367,7 @@ void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
   GL glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-Thing* thingLoadFromData(void* data, int type, Body* loc) {
+Thing* thingLoadFromData(void* data, int type, Body* body) {
   Renderable render;
   Thing* dest = malloc(sizeof(Thing));
 
@@ -384,7 +384,7 @@ Thing* thingLoadFromData(void* data, int type, Body* loc) {
     case THING_TRIANGLE:
       render.rfunc = (RenderFunc)renderTriangle;
       render.rinit = (RenderInitFunc)renderInitTriangle;
-      aabbNew((vec3*)TRIANGLE_VERTICES, 3, loc);
+      aabbNew((vec3*)TRIANGLE_VERTICES, 3, body);
       break;
     case THING_CUBE:
       render.rfunc = (RenderFunc)renderCube;
@@ -393,7 +393,7 @@ Thing* thingLoadFromData(void* data, int type, Body* loc) {
     case THING_SQUARE:
       render.rfunc = (RenderFunc)renderSquare;
       render.rinit = (RenderInitFunc)renderInitSquare;
-      aabbNew((vec3*)SQUARE_VERTICES, 4, loc);
+      aabbNew((vec3*)SQUARE_VERTICES, 4, body);
       break;
     case THING_BACKPACK:
       // We assume the model has already been loaded.
@@ -407,7 +407,7 @@ Thing* thingLoadFromData(void* data, int type, Body* loc) {
 
   dest->type = type;
   dest->self = data;
-  dest->loc = *loc;
+  dest->body = *body;
   dest->render = render;
 
   return dest;

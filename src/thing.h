@@ -78,7 +78,7 @@ typedef struct {
 
 // A thing
 typedef struct {
-  Body loc;
+  Body body;
   int type;
   Renderable render;
   void* self;

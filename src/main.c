@@ -210,6 +210,8 @@ static GLFWwindow* windowCreateFallback() {
   return glfwCreateWindow(WIN_FALLBACK_X, WIN_FALLBACK_Y, TITLE, NULL, NULL);
 }
 
+void windowOnSizeChange(void* window, int x, int y) { glViewport(0, 0, x, y); }
+
 // set up opengl and glad contexts and launch a default fullscreen window,
 // intended to only be run during the lifetime of the application.
 Result windowInit() {
@@ -232,9 +234,9 @@ Result windowInit() {
         WIN_FALLBACK_X, WIN_FALLBACK_Y);
     WINDOW.window = windowCreateFallback();
   } else {
-    WINDOW.window = glfwCreateWindow(mode->width, mode->height, TITLE,
-                                     WINDOW.monitor, NULL);
-    /* WINDOW.window = windowCreateFallback(); */
+    /* WINDOW.window = glfwCreateWindow(mode->width, mode->height, TITLE, */
+    /*                                  WINDOW.monitor, NULL); */
+    WINDOW.window = windowCreateFallback();
   }
 
   if (!WINDOW.window) {
@@ -244,6 +246,10 @@ Result windowInit() {
 
   glfwMakeContextCurrent(WINDOW.window);
   glfwGetFramebufferSize(WINDOW.window, &WINDOW.resx, &WINDOW.resy);
+  glfwSetFramebufferSizeCallback(WINDOW.window,
+                                 (GLFWframebuffersizefun)windowOnSizeChange);
+
+  glfwSetInputMode(WINDOW.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
   if (WINDOW.resx == 0) {
     log_error("failed to query screen coordinates");
@@ -475,7 +481,7 @@ void timeUpdate() {
     TIMER.fps = TIMER.second_frames;
     TIMER.second_frames = 0;
     TIMER.last_second = TIMER.time;
-    log_debug("FPS: %f", TIMER.fps);
+    log_debug("FPS: %f | DELTA: %f", TIMER.fps, TIMER.delta);
   }
 }
 
@@ -571,14 +577,14 @@ void calculateRayDirection(int width, int height, float x, float y,
 static Body playerBody = {.height = 1,
                           .width = 1,
                           .halfsize = 1,
-                          .pos = {0, 4, 3},
+                          .pos = {0, 1, 5},
                           .rot = {0, 0, 0},
                           .is_dynamic = true};
 
 /* void playerUpdate(Body* colliders, int n_colliders) { */
-void playerUpdate() {
+void playerUpdate(Body* player_body) {
   vec3 movement = {0, 0, 0};
-  float move_speed = 0.4;
+  float move_speed = 6;
   int moved = 0;
 
   if (KPRESSED(K_MOVE_FORW)) {
@@ -600,8 +606,8 @@ void playerUpdate() {
 
   glm_normalize(movement);
   glm_vec3_scale(movement, move_speed, movement);
-  glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement);
-  glm_vec3_copy(movement, playerBody.velocity);
+  /* glm_vec3_sub(movement, (vec3){0, 9.8, 0}, movement); */
+  glm_vec3_copy(movement, player_body->velocity);
 
   /* attemptMove(movement, &playerBody, colliders, n_colliders); */
   /* glm_vec3_copy(playerBody.pos, pCam.pos); */
@@ -883,7 +889,7 @@ Result rendererRender(kh_thing_t* things) {
     t = kh_val(things, i);
     if (!t->render.rfunc) continue;
 
-    (t->render.rfunc)(t->self, &t->loc, t->render.ri,
+    (t->render.rfunc)(t->self, &t->body, t->render.ri,
                       (RenderMatrices){.proj = &pCam.proj, .view = &pCam.view},
                       NULL);
 
@@ -893,7 +899,7 @@ Result rendererRender(kh_thing_t* things) {
             kh_end(RENDERER.renderinfos)) {
       ri = kh_val(RENDERER.renderinfos, k);
 
-      renderAABB(&(CubeThing){.color = {1, 0, 0, 0.1}}, &t->loc, ri,
+      renderAABB(&(CubeThing){.color = {1, 0, 0, 0.1}}, &t->body, ri,
                  (RenderMatrices){&pCam.proj, .view = &pCam.view}, NULL);
     }
   }
@@ -972,7 +978,7 @@ int main(void) {
 
   thingAdd(triangle);
   thingAdd(triangle2);
-  thingAdd(floorthing);
+  /* thingAdd(floorthing); */
   thingAdd(bpmodel);
   thingAdd(cubething);
   thingAdd(playerthing);
@@ -984,10 +990,10 @@ int main(void) {
   while (!windowShouldClose()) {
     windowNewFrame();
     windowPoll();
-    playerUpdate();
+    playerUpdate(&playerthing->body);
     physicsUpdate(THINGS.things, TIMER.delta);
 
-    glm_vec3_copy(playerBody.pos, pCam.pos);
+    glm_vec3_copy(playerthing->body.pos, pCam.pos);
     pCamPan(MOUSE.xpos, MOUSE.ypos);
 
     rendererRender(THINGS.things);
