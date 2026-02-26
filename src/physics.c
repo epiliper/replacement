@@ -29,7 +29,9 @@ void aabbNew(vec3* vertices, int n, Body* body) {
 
   body->halfsize[0] = (max[0] - min[0]) / 2 * body->width;
   body->halfsize[1] = (max[1] - min[1]) / 2 * body->height;
-  body->halfsize[2] = (max[2] - min[2]);
+  body->halfsize[2] =
+      MAX((max[2] - min[2]),
+          0.2);  // we pad z value if we are making a collider for a 2D shape
 }
 
 bool aabbCollide(Body* a, Body* b) {
@@ -42,13 +44,14 @@ bool aabbCollide(Body* a, Body* b) {
           min[2] <= 0 && max[2] >= 0);
 }
 
-#define EPSILON 0.0001f
 Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body) {
   Hit hit = {0};
   vec3 min, max;
   aabbMinMax(body, min, max);
 
   float tmin = 0.0f, tmax = 1.0f;
+  float sign = -1.0f;
+  int axis = -1;
 
   for (uint8_t i = 0; i < 3; i++) {
     if (fabsf(magnitude[i]) > 1e-8f) {
@@ -57,6 +60,11 @@ Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body) {
 
       float tNear = fminf(t1, t2);
       float tFar = fmaxf(t1, t2);
+
+      if (tNear > tmin) {
+        sign = (t1 < t2) ? -1.0f : 1.0f;
+        axis = i;
+      }
 
       tmin = fmaxf(tmin, tNear);
       tmax = fminf(tmax, tFar);
@@ -75,29 +83,12 @@ Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body) {
     hit.pos[1] = pos[1] + magnitude[1] * tmin;
     hit.pos[2] = pos[2] + magnitude[2] * tmin;
 
+    if (axis != -1) {
+      hit.normal[axis] = sign;
+    }
+
     hit.is_hit = true;
     hit.time = tmin;
-
-    // distance from edge of aabb to the central position of the body
-    float dx = hit.pos[0] - body->pos[0];
-    float dy = hit.pos[1] - body->pos[1];
-    float dz = hit.pos[2] - body->pos[2];
-
-    // face of boxes touching collision
-    float px = body->halfsize[0] - fabsf(dx);
-    float py = body->halfsize[1] - fabsf(dy);
-    float pz = body->halfsize[2] - fabsf(dz);
-
-    // we need to find the axis which has the earliest penetration (giggity)
-    //
-    // if pz is lowest, we've collided with a face on the z plane
-    if (px < py && px < pz) {
-      hit.normal[0] = (dx > 0) - (dx < 0);
-    } else if (py < pz) {
-      hit.normal[1] = (dy > 0) - (dy < 0);
-    } else {
-      hit.normal[2] = (dz > 0) - (dz < 0);
-    }
   }
 
   return hit;
