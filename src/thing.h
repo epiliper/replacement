@@ -51,11 +51,12 @@ typedef struct {
 typedef struct {
   vec3 pos;
   vec3 rot;
-  float height, width;
+  vec3 scale;
   vec3 halfsize;
   vec3 velocity;
   float mass;
   bool is_dynamic;
+  bool is_grounded;
 } Body;
 
 // Function to render a particular thing

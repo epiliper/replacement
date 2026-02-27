@@ -27,11 +27,12 @@ void aabbNew(vec3* vertices, int n, Body* body) {
     max[2] = MAX(max[2], vertices[i][2]);
   }
 
-  body->halfsize[0] = (max[0] - min[0]) / 2 * body->width;
-  body->halfsize[1] = (max[1] - min[1]) / 2 * body->height;
-  body->halfsize[2] =
-      MAX((max[2] - min[2]),
-          0.2);  // we pad z value if we are making a collider for a 2D shape
+  body->halfsize[0] = max[0] - min[0] / 2;
+  body->halfsize[1] = max[1] - min[1] / 2;
+  body->halfsize[2] = max[2] - min[2] / 2;
+  glm_vec3_print(body->halfsize, stderr);
+  glm_vec3_mul(body->halfsize, body->scale, body->halfsize);
+  glm_vec3_print(body->halfsize, stderr);
 }
 
 bool aabbCollide(Body* a, Body* b) {
@@ -126,11 +127,12 @@ void physicsSweep(Body* b, vec3 velocity, kh_thing_t* things) {
   // We need to remove velocity along that axis. For now we are just zero-ing
   // it.
   if (closest.normal[0] != 0) {
-    velocity[0] = 0;
+    b->velocity[0] = 0;
   } else if (closest.normal[1] != 0) {
-    velocity[1] = 0;
+    b->velocity[1] = 0;
+    b->is_grounded = true;
   } else {
-    velocity[2] = 0;
+    b->velocity[2] = 0;
   }
 
   // 2. Update position of the body to reflect the collision.
@@ -149,6 +151,10 @@ void physicsUpdate(kh_thing_t* things, double delta_time) {
     b = &t->body;
 
     if (!b->is_dynamic) continue;
+
+    if (!b->is_grounded) {
+      b->velocity[1] -= 9.8f;
+    }
 
     vec3 scaled_velocity;
     glm_vec3_scale(b->velocity, delta_time, scaled_velocity);

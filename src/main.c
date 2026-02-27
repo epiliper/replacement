@@ -572,12 +572,12 @@ void calculateRayDirection(int width, int height, float x, float y,
  * =======
  */
 
-static Body playerBody = {.height = 1,
-                          .width = 1,
+static Body playerBody = {.scale = {1, 1, 1},
                           .halfsize = {1},
-                          .pos = {0, 1, 5},
+                          .pos = {0, 4, 5},
                           .rot = {0, 0, 0},
-                          .is_dynamic = true};
+                          .is_dynamic = true,
+                          .is_grounded = false};
 
 /* void playerUpdate(Body* colliders, int n_colliders) { */
 void playerUpdate(Body* player_body) {
@@ -887,12 +887,12 @@ Result rendererRender(kh_thing_t* things) {
                       NULL);
 
     // render bounding box as well.
-    if (t->type == THING_TRIANGLE &&
+    if ((t->type == THING_TRIANGLE || t->type == THING_CUBE) &&
         (k = kh_get_ri(RENDERER.renderinfos, THING_CUBE)) !=
             kh_end(RENDERER.renderinfos)) {
       ri = kh_val(RENDERER.renderinfos, k);
 
-      renderAABB(&(CubeThing){.color = {1, 0, 0, 0.1}}, &t->body, ri,
+      renderAABB(&(CubeThing){.color = {1, 1, 1, 0.5}}, &t->body, ri,
                  (RenderMatrices){&pCam.proj, .view = &pCam.view}, NULL);
     }
   }
@@ -926,22 +926,35 @@ int main(void) {
 
   TriangleThing t = {.color = {0, 0, 1, 1}};
   /* SquareThing s = {.color = {0, 0, 1, 0.2}}; */
-  SquareThing floor = {.color = {0, 0, 1, 0.2}};
-  CubeThing cube = {.color = {0, 0, 0, 0}};
+  CubeThing floor = {.color = {0, 0, 1, 0.2}};
+  CubeThing cube = {.color = {0, 0, 1, 0.2}};
 
-  Body floorbody = {.pos = {0, 0, 0},
-                    .width = 100,
-                    .height = 100,
-                    .rot = {90, 0, 0},
-                    .is_dynamic = false,
-                    .velocity = {0, 0, 0}};
+  Body floorbody = {
+      .pos = {0, 0, 0},
+      .scale = {100, 1, 100},
+      .rot = {0, 0, 0},
+      .is_dynamic = false,
+      .velocity = {0, 0, 0},
+      .is_grounded = true,
+  };
 
-  Body tbody = {.pos = {0, 1, -5},
-                .height = 2,
-                .width = 2,
-                .rot = {0, 0, 0},
-                .is_dynamic = false,
-                .velocity = {0, 0, 0}};
+  Body tbody = {
+      .pos = {0, 1, -5},
+      .scale = {2, 2, 1},
+      .rot = {0, 0, 0},
+      .is_dynamic = false,
+      .velocity = {0, 0, 0},
+      .is_grounded = true,
+  };
+
+  Body tbody2 = {
+      .pos = {4, 1, -5},
+      .scale = {2, 2, 1},
+      .rot = {0, 0, 0},
+      .is_dynamic = false,
+      .velocity = {0, 0, 0},
+      .is_grounded = false,
+  };
 
   Model backpack = {0};
 
@@ -953,8 +966,8 @@ int main(void) {
   // addition
 
   Thing* triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
-  Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
-  Thing* floorthing = thingLoadFromData(&floor, THING_SQUARE, &floorbody);
+  Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody2);
+  Thing* floorthing = thingLoadFromData(&floor, THING_CUBE, &floorbody);
   Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
   Thing* cubething = thingLoadFromData(&cube, THING_CUBE, &tbody);
   Thing* playerthing = thingLoadFromData(NULL, THING_PLAYER, &playerBody);
@@ -971,7 +984,7 @@ int main(void) {
 
   thingAdd(triangle);
   thingAdd(triangle2);
-  /* thingAdd(floorthing); */
+  thingAdd(floorthing);
   thingAdd(bpmodel);
   thingAdd(cubething);
   thingAdd(playerthing);

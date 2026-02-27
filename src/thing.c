@@ -87,42 +87,80 @@ unsigned int SQUARE_INDICES[] = {
 
 // clang-format off
 // x     y     z     tex_x tex_y
-float CUBE_VERTICES[120] = {
+/* float CUBE_VERTICES[120] = { */
+/*   // front (z = 0.5) */
+/*   -0.5, -0.5,  0.5,   1.0f, 1.0f,  // 0 */
+/*    0.5, -0.5,  0.5,   1.0f, 0.0f,  // 1 */
+/*    0.5,  0.5,  0.5,   0.0f, 0.0f,  // 2 */
+/*   -0.5,  0.5,  0.5,   0.0f, 1.0f,  // 3 */
+  
+/*   // back (z = -0.5) */
+/*   -0.5, -0.5, -0.5,   1.0f, 1.0f,  // 4 */
+/*    0.5, -0.5, -0.5,   1.0f, 0.0f,  // 5 */
+/*    0.5,  0.5, -0.5,   0.0f, 0.0f,  // 6 */
+/*   -0.5,  0.5, -0.5,   0.0f, 1.0f,  // 7 */
+  
+/*   // left (x = -0.5) */
+/*   -0.5, -0.5, -0.5,   1.0f, 1.0f,  // 8 */
+/*   -0.5, -0.5,  0.5,   1.0f, 0.0f,  // 9 */
+/*   -0.5,  0.5,  0.5,   0.0f, 0.0f,  // 10 */
+/*   -0.5,  0.5, -0.5,   0.0f, 1.0f,  // 11 */
+  
+/*   // right (x = 0.5) */
+/*    0.5, -0.5, -0.5,   1.0f, 1.0f,  // 12 */
+/*    0.5, -0.5,  0.5,   1.0f, 0.0f,  // 13 */
+/*    0.5,  0.5,  0.5,   0.0f, 0.0f,  // 14 */
+/*    0.5,  0.5, -0.5,   0.0f, 1.0f,  // 15 */
+  
+/*   // top (y = 0.5) */
+/*   -0.5,  0.5,  0.5,   1.0f, 1.0f, // 16 */
+/*    0.5,  0.5,  0.5,   1.0f, 0.0f, // 17 */
+/*    0.5,  0.5, -0.5,   0.0f, 0.0f, // 18 */
+/*   -0.5,  0.5, -0.5,   0.0f, 1.0f, // 19 */
+  
+/*   // bottom (y = -0.5) */
+/*   -0.5, -0.5,  0.5,   1.0f, 1.0f, // 20 */
+/*    0.5, -0.5,  0.5,   1.0f, 0.0f, // 21 */
+/*    0.5, -0.5, -0.5,   0.0f, 0.0f, // 22 */
+/*   -0.5, -0.5, -0.5,   0.0f, 1.0f, // 23 */
+/* }; */
+
+float CUBE_VERTICES[72] = {
   // front (z = 0.5)
-  -0.5, -0.5,  0.1,   1.0f, 1.0f,  // 0
-   0.5, -0.5,  0.1,   1.0f, 0.0f,  // 1
-   0.5,  0.5,  0.1,   0.0f, 0.0f,  // 2
-  -0.5,  0.5,  0.1,   0.0f, 1.0f,  // 3
+  -0.5, -0.5,  0.5,  // 0
+   0.5, -0.5,  0.5,  // 1
+   0.5,  0.5,  0.5,  // 2
+  -0.5,  0.5,  0.5,  // 3
   
   // back (z = -0.5)
-  -0.5, -0.5, -0.1,   1.0f, 1.0f,  // 4
-   0.5, -0.5, -0.1,   1.0f, 0.0f,  // 5
-   0.5,  0.5, -0.1,   0.0f, 0.0f,  // 6
-  -0.5,  0.5, -0.1,   0.0f, 1.0f,  // 7
+  -0.5, -0.5, -0.5,  // 4
+   0.5, -0.5, -0.5,  // 5
+   0.5,  0.5, -0.5,  // 6
+  -0.5,  0.5, -0.5,  // 7
   
   // left (x = -0.5)
-  -0.5, -0.5, -0.1,   1.0f, 1.0f,  // 8
-  -0.5, -0.5,  0.1,   1.0f, 0.0f,  // 9
-  -0.5,  0.5,  0.1,   0.0f, 0.0f,  // 10
-  -0.5,  0.5, -0.1,   0.0f, 1.0f,  // 11
+  -0.5, -0.5, -0.5,  // 8
+  -0.5, -0.5,  0.5,  // 9
+  -0.5,  0.5,  0.5,  // 10
+  -0.5,  0.5, -0.5,  // 11
   
   // right (x = 0.5)
-   0.5, -0.5, -0.1,   1.0f, 1.0f,  // 12
-   0.5, -0.5,  0.1,   1.0f, 0.0f,  // 13
-   0.5,  0.5,  0.1,   0.0f, 0.0f,  // 14
-   0.5,  0.5, -0.1,   0.0f, 1.0f,  // 15
+   0.5, -0.5, -0.5,  // 12
+   0.5, -0.5,  0.5,  // 13
+   0.5,  0.5,  0.5,  // 14
+   0.5,  0.5, -0.5,  // 15
   
   // top (y = 0.5)
-  -0.5,  0.5,  0.1,   1.0f, 1.0f, // 16
-   0.5,  0.5,  0.1,   1.0f, 0.0f, // 17
-   0.5,  0.5, -0.1,   0.0f, 0.0f, // 18
-  -0.5,  0.5, -0.1,   0.0f, 1.0f, // 19
+  -0.5,  0.5,  0.5, // 16
+   0.5,  0.5,  0.5, // 17
+   0.5,  0.5, -0.5, // 18
+  -0.5,  0.5, -0.5, // 19
   
-  // bottom (y = -0.5)
-  -0.5, -0.5,  0.1,   1.0f, 1.0f, // 20
-   0.5, -0.5,  0.1,   1.0f, 0.0f, // 21
-   0.5, -0.5, -0.1,   0.0f, 0.0f, // 22
-  -0.5, -0.5, -0.1,   0.0f, 1.0f, // 23
+  // bottom (y = -0)
+  -0.5, -0.5,  0.5, // 20
+   0.5, -0.5,  0.5, // 21
+   0.5, -0.5, -0.5, // 22
+  -0.5, -0.5, -0.5, // 23
 };
 
 float CUBE_TEX[48] = {
@@ -268,7 +306,7 @@ RenderInfo renderInitCube() {
   GL glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CUBE_INDICES), CUBE_INDICES,
                   GL_STATIC_DRAW);
 
-  GL glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
+  GL glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
                            (void*)0);
   GL glEnableVertexAttribArray(0);
 
@@ -288,14 +326,14 @@ void renderCube(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
   glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
   glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
 
-  glm_scale(model, (vec3){body->width, body->height, 1});
+  glm_scale(model, body->scale);
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);
   shaderSetMat4(ri.shader, "view", *rm.view);
   shaderSetMat4(ri.shader, "model", model);
 
   shaderSetVec4(ri.shader, "color", self->color);
-  GL glDrawElements(GL_TRIANGLES, sizeof(CUBE_VERTICES), GL_UNSIGNED_INT, 0);
+  GL glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 }
 
 void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
@@ -303,17 +341,16 @@ void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
   GL glUseProgram(ri.shader);
   GL glBindVertexArray(ri.vao);
 
-  vec3 min, max;
-  aabbMinMax(body, min, max);
-
   mat4 model;
   glm_mat4_identity(model);
   glm_translate(model, body->pos);
 
-  glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
-  glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
+  /* glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0}); */
+  /* glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0}); */
 
-  glm_scale(model, (vec3){body->width, body->height, 1});
+  vec3 scale;
+  glm_vec3_scale(body->scale, 1.1f, scale);
+  glm_scale(model, scale);
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);
   shaderSetMat4(ri.shader, "view", *rm.view);
@@ -334,7 +371,7 @@ void renderTriangle(TriangleThing* self, Body* body, RenderInfo ri,
   glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
   glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
 
-  glm_scale(model, (vec3){body->width, body->height, 1});
+  glm_scale(model, body->scale);
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);
   shaderSetMat4(ri.shader, "view", *rm.view);
@@ -357,7 +394,7 @@ void renderSquare(SquareThing* self, Body* body, RenderInfo ri,
   glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0});
   glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0});
 
-  glm_scale(model, (vec3){body->width, body->height, 1});
+  glm_scale(model, body->scale);
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);
   shaderSetMat4(ri.shader, "view", *rm.view);
@@ -389,6 +426,7 @@ Thing* thingLoadFromData(void* data, int type, Body* body) {
     case THING_CUBE:
       render.rfunc = (RenderFunc)renderCube;
       render.rinit = (RenderInitFunc)renderInitCube;
+      aabbNew((vec3*)CUBE_VERTICES, 24, body);
       break;
     case THING_SQUARE:
       render.rfunc = (RenderFunc)renderSquare;
