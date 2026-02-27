@@ -204,11 +204,16 @@ Window WINDOW;
 #define GL_V_MAJOR 3
 #define GL_V_MINOR 3
 
+void pCamOnResolutionChange(int width, int height);
+
 static GLFWwindow* windowCreateFallback() {
   return glfwCreateWindow(WIN_FALLBACK_X, WIN_FALLBACK_Y, TITLE, NULL, NULL);
 }
 
-void windowOnSizeChange(void* window, int x, int y) { glViewport(0, 0, x, y); }
+void windowOnSizeChange(void* window, int x, int y) {
+  glViewport(0, 0, x, y);
+  pCamOnResolutionChange(x, y);
+}
 
 // set up opengl and glad contexts and launch a default fullscreen window,
 // intended to only be run during the lifetime of the application.
@@ -312,23 +317,7 @@ static PerspectiveCamera pCam;
 static float last_pitch;
 static vec3 last_pos;
 
-#define pCamInit           \
-  {.pitch = 0,             \
-   .yaw = 0,               \
-   .firstInt = true,       \
-   .lastx = 0,             \
-   .lasty = 0,             \
-   .pos = {0, 4, 3},       \
-   .direction = {0, 0, 0}, \
-   .up = {0, 0, 0},        \
-   .right = {0, 0, 0},     \
-   .front = {0, 0, -1},    \
-   .proj = {0},            \
-   .view = {0},            \
-   .ortho = {0},           \
-   .fov = 45,              \
-   .mode = CAM_FPS,        \
-   .sensitivity = 0.1}
+#define pCAM_INIT_POS {0, 4, 20}
 
 void pCamToggleMode(int width, int height) {
   if (pCam.mode == CAM_FPS) {
@@ -372,15 +361,31 @@ void pCamUpdateOrtho(int width, int height) {
 }
 
 void pCamOnFovChange(float fov) {
+  pCam.firstInt = true;
   pCam.fov = fov;
   pCamUpdateProj(WINDOW.resx, WINDOW.resy);
   pCamUpdateView(WINDOW.resx, WINDOW.resy);
 }
 
 void pCamOnResolutionChange(int width, int height) {
+  pCam.firstInt = true;
   pCamUpdateProj(width, height);
   pCamUpdateView(width, height);
   pCamUpdateOrtho(width, height);
+}
+
+void pCamInit(int width, int height) {
+  pCam = (PerspectiveCamera){0};
+  pCam.yaw = -45.0f;
+  pCam.pitch = 0.0f;
+  pCam.lastx = width / 2.0f;
+  pCam.lasty = height / 2.0f;
+  pCam.sensitivity = 0.1;
+  pCam.fov = 45;
+  pCam.firstInt = true;
+  pCam.mode = CAM_FPS;
+  pCamUpdateProj(width, height);
+  pCamUpdateView(width, height);
 }
 
 void pCamPan(double xpos, double ypos) {
@@ -403,38 +408,6 @@ void pCamPan(double xpos, double ypos) {
   pCam.pitch = pCam.pitch < -89.0f ? -89.0f : pCam.pitch;
 
   pCamUpdateView(WINDOW.resx, WINDOW.resy);
-}
-
-enum {
-  CMOVE_LEFT,
-  CMOVE_RIGHT,
-  CMOVE_FORW,
-  CMOVE_BACK,
-};
-
-void pCamMove(int direction) {
-  float velocity = 0.1;
-  vec3 movement = {0};
-  switch (direction) {
-    case CMOVE_FORW:
-      glm_vec3_add(movement, (vec3){pCam.front[0], 0.0, pCam.front[2]},
-                   movement);
-      break;
-    case CMOVE_BACK:
-      glm_vec3_sub(movement, (vec3){pCam.front[0], 0.0, pCam.front[2]},
-                   movement);
-      break;
-    case CMOVE_RIGHT:
-      glm_vec3_add(movement, pCam.right, movement);
-      break;
-    case CMOVE_LEFT:
-      glm_vec3_sub(movement, pCam.right, movement);
-      break;
-  }
-
-  glm_normalize(movement);
-  glm_vec3_scale(movement, velocity, movement);
-  glm_vec3_add(pCam.pos, movement, pCam.pos);
 }
 
 /*
@@ -574,7 +547,7 @@ void calculateRayDirection(int width, int height, float x, float y,
 
 static Body playerBody = {.scale = {1, 1, 1},
                           .halfsize = {1},
-                          .pos = {0, 4, 5},
+                          .pos = {0, 4, 20},
                           .rot = {0, 0, 0},
                           .is_dynamic = true,
                           .is_grounded = false};
@@ -892,7 +865,7 @@ Result rendererRender(kh_thing_t* things) {
             kh_end(RENDERER.renderinfos)) {
       ri = kh_val(RENDERER.renderinfos, k);
 
-      renderAABB(&(CubeThing){.color = {1, 1, 1, 0.5}}, &t->body, ri,
+      renderAABB(&(CubeThing){.color = {1, 1, 1, 0.2}}, &t->body, ri,
                  (RenderMatrices){&pCam.proj, .view = &pCam.view}, NULL);
     }
   }
@@ -908,14 +881,14 @@ Result rendererRender(kh_thing_t* things) {
 
 int main(void) {
   LOGGER.out = stderr;
-  pCam = (PerspectiveCamera)pCamInit;
+  /* pCam = (PerspectiveCamera)pCamInit; */
 
   WINDOW = (Window)WINDOW_INIT;
   if (is_err(windowInit())) {
     return 1;
   }
 
-  pCamOnResolutionChange(WINDOW.resx, WINDOW.resy);
+  pCamInit(WINDOW.resx, WINDOW.resy);
 
   glEnable(GL_BLEND);
   glEnable(GL_DEPTH_TEST);
@@ -947,14 +920,10 @@ int main(void) {
       .is_grounded = true,
   };
 
-  Body tbody2 = {
-      .pos = {4, 1, -5},
-      .scale = {2, 2, 1},
-      .rot = {0, 0, 0},
-      .is_dynamic = false,
-      .velocity = {0, 0, 0},
-      .is_grounded = false,
-  };
+  Body tbody_dynamic = tbody;
+  tbody_dynamic.is_dynamic = true;
+  tbody_dynamic.pos[1] = 100;
+  tbody_dynamic.is_grounded = false;
 
   Model backpack = {0};
 
@@ -966,7 +935,7 @@ int main(void) {
   // addition
 
   Thing* triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
-  Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody2);
+  Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody_dynamic);
   Thing* floorthing = thingLoadFromData(&floor, THING_CUBE, &floorbody);
   Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
   Thing* cubething = thingLoadFromData(&cube, THING_CUBE, &tbody);

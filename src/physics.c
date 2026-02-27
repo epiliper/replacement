@@ -122,10 +122,6 @@ void physicsSweep(Body* b, vec3 velocity, kh_thing_t* things) {
   }
 
   // we actually have a collision
-
-  // 1. find axis along which we collided.
-  // We need to remove velocity along that axis. For now we are just zero-ing
-  // it.
   if (closest.normal[0] != 0) {
     b->velocity[0] = 0;
   } else if (closest.normal[1] != 0) {
@@ -137,8 +133,15 @@ void physicsSweep(Body* b, vec3 velocity, kh_thing_t* things) {
 
   // 2. Update position of the body to reflect the collision.
   glm_vec3_scale(closest.normal, 1e-4f, closest.normal);
-  glm_vec3_add(closest.pos, closest.normal, closest.pos);
-  glm_vec3_copy(closest.pos, b->pos);
+
+  /* glm_vec3_scale(closest.pos, closest.time, closest.pos); */
+  /* glm_vec3_add(closest.pos, closest.normal, closest.pos); */
+  /* glm_vec3_copy(closest.pos, b->pos); */
+
+  glm_vec3_scale(velocity, closest.time, velocity);
+  glm_vec3_add(velocity, closest.normal, velocity);
+  /* glm_vec3_sub( */
+  glm_vec3_add(b->pos, velocity, b->pos);
 }
 
 void physicsUpdate(kh_thing_t* things, double delta_time) {
@@ -153,7 +156,7 @@ void physicsUpdate(kh_thing_t* things, double delta_time) {
     if (!b->is_dynamic) continue;
 
     if (!b->is_grounded) {
-      b->velocity[1] -= 9.8f;
+      b->velocity[1] -= 9.8f * delta_time;
     }
 
     vec3 scaled_velocity;
