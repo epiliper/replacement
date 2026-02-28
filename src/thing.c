@@ -1,5 +1,4 @@
 #include "thing.h"
-/* #include <cglm/affine-pre.h> */
 #include "utils.h"
 #include "log.h"
 #include "mesh.h"
@@ -345,10 +344,7 @@ void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
   glm_mat4_identity(model);
   glm_translate(model, body->pos);
 
-  vec3 scale;
-  glm_vec3_scale(body->halfsize, 2.0f, scale);
-  scale[2] = MAX(scale[2], 0.1f);
-  glm_scale(model, scale);
+  glm_scale(model, body->scale);
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);
   shaderSetMat4(ri.shader, "view", *rm.view);

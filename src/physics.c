@@ -27,12 +27,10 @@ void aabbNew(vec3* vertices, int n, Body* body) {
     max[2] = MAX(max[2], vertices[i][2]);
   }
 
-  body->halfsize[0] = max[0] - min[0] / 2;
-  body->halfsize[1] = max[1] - min[1] / 2;
-  body->halfsize[2] = max[2] - min[2] / 2;
-  glm_vec3_print(body->halfsize, stderr);
+  body->halfsize[0] = (max[0] - min[0]) / 2;
+  body->halfsize[1] = (max[1] - min[1]) / 2;
+  body->halfsize[2] = (max[2] - min[2]) / 2;
   glm_vec3_mul(body->halfsize, body->scale, body->halfsize);
-  glm_vec3_print(body->halfsize, stderr);
 }
 
 bool aabbCollide(Body* a, Body* b) {
@@ -78,8 +76,8 @@ Hit aabbIntersectRay(vec3 pos, vec3 magnitude, Body* body) {
     }
   }
 
-  log_debug("TMIN: %f, TMAX: %f", tmin, tmax);
   if (tmin <= tmax) {
+    log_debug("TMIN: %f, TMAX: %f", tmin, tmax);
     hit.pos[0] = pos[0] + magnitude[0] * tmin;
     hit.pos[1] = pos[1] + magnitude[1] * tmin;
     hit.pos[2] = pos[2] + magnitude[2] * tmin;

@@ -546,7 +546,7 @@ void calculateRayDirection(int width, int height, float x, float y,
  */
 
 static Body playerBody = {.scale = {1, 1, 1},
-                          .halfsize = {1},
+                          .halfsize = {1, 1, 1},
                           .pos = {0, 4, 20},
                           .rot = {0, 0, 0},
                           .is_dynamic = true,
@@ -927,9 +927,10 @@ int main(void) {
 
   Model backpack = {0};
 
-  if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj"))) {
-    return 1;
-  };
+  /* if (is_err(modelLoadFromFile(&backpack, "meshes/backpack/backpack.obj"))) {
+   */
+  /*   return 1; */
+  /* }; */
 
   // TODO: abstract thing generation, renderer addition, and thing manager
   // addition
@@ -937,7 +938,7 @@ int main(void) {
   Thing* triangle = thingLoadFromData(&t, THING_TRIANGLE, &tbody);
   Thing* triangle2 = thingLoadFromData(&t, THING_TRIANGLE, &tbody_dynamic);
   Thing* floorthing = thingLoadFromData(&floor, THING_CUBE, &floorbody);
-  Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody);
+  /* Thing* bpmodel = thingLoadFromData(&backpack, THING_BACKPACK, &tbody); */
   Thing* cubething = thingLoadFromData(&cube, THING_CUBE, &tbody);
   Thing* playerthing = thingLoadFromData(NULL, THING_PLAYER, &playerBody);
 
@@ -947,20 +948,22 @@ int main(void) {
 
   rendererAddThing(triangle);
   rendererAddThing(triangle2);
-  rendererAddThing(bpmodel);
+  /* rendererAddThing(bpmodel); */
   rendererAddThing(floorthing);
   rendererAddThing(cubething);
 
   thingAdd(triangle);
   thingAdd(triangle2);
   thingAdd(floorthing);
-  thingAdd(bpmodel);
+  /* thingAdd(bpmodel); */
   /* thingAdd(cubething); */
   thingAdd(playerthing);
 
   log_debug("======================");
   log_debug("BEGIN MAIN RENDER LOOP");
   log_debug("======================");
+
+  glm_vec3_print(playerthing->body.halfsize, stderr);
 
   while (!windowShouldClose()) {
     windowNewFrame();
