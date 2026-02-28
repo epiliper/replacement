@@ -134,13 +134,8 @@ void physicsSweep(Body* b, vec3 velocity, kh_thing_t* things) {
   // 2. Update position of the body to reflect the collision.
   glm_vec3_scale(closest.normal, 1e-4f, closest.normal);
 
-  /* glm_vec3_scale(closest.pos, closest.time, closest.pos); */
-  /* glm_vec3_add(closest.pos, closest.normal, closest.pos); */
-  /* glm_vec3_copy(closest.pos, b->pos); */
-
   glm_vec3_scale(velocity, closest.time, velocity);
   glm_vec3_add(velocity, closest.normal, velocity);
-  /* glm_vec3_sub( */
   glm_vec3_add(b->pos, velocity, b->pos);
 }
 

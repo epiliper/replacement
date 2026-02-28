@@ -345,11 +345,9 @@ void renderAABB(CubeThing* self, Body* body, RenderInfo ri, RenderMatrices rm,
   glm_mat4_identity(model);
   glm_translate(model, body->pos);
 
-  /* glm_rotate(model, glm_rad(body->rot[0]), (vec3){1, 0, 0}); */
-  /* glm_rotate(model, glm_rad(body->rot[1]), (vec3){0, 1, 0}); */
-
   vec3 scale;
-  glm_vec3_scale(body->scale, 1.1f, scale);
+  glm_vec3_scale(body->halfsize, 2.0f, scale);
+  scale[2] = MAX(scale[2], 0.1f);
   glm_scale(model, scale);
 
   shaderSetMat4(ri.shader, "proj", *rm.proj);

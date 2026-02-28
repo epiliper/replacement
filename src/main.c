@@ -955,7 +955,7 @@ int main(void) {
   thingAdd(triangle2);
   thingAdd(floorthing);
   thingAdd(bpmodel);
-  thingAdd(cubething);
+  /* thingAdd(cubething); */
   thingAdd(playerthing);
 
   log_debug("======================");
